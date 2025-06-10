@@ -106,11 +106,33 @@ export async function generateTeams(config, progressCallback = () => {}) {
           message: `Generating configurations for ${team.name}`
         })
         
-        await generateConfigurations(outputDir, characterConfig, {
-          projectConfig,
-          repoUrl
-        })
+        try {
+          await generateConfigurations(outputDir, characterConfig, {
+            projectConfig,
+            repoUrl
+          })
+        } catch (configError) {
+          logger.error(`Configuration generation failed for ${team.name}:`, configError)
+          progressCallback({
+            type: 'task',
+            theme: { name: themeName },
+            task: 'config',
+            progress: -1,
+            message: `Failed to generate configurations for ${team.name}: ${configError.message}`
+          })
+          throw configError
+        }
+        
         completedSteps++
+        
+        // Update progress after config generation
+        progressCallback({
+          type: 'task',
+          theme: { name: themeName },
+          task: 'config',
+          progress: 70,
+          message: `Generated configurations for ${team.name}`
+        })
         
         // Step 4: Setup git hooks
         progressCallback({

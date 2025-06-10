@@ -11,37 +11,54 @@ export async function generateConfigurations(outputDir, characterConfig, options
   const { projectConfig, repoUrl } = options
   const agentRoot = path.join(outputDir, characterConfig.paths.root)
   
-  // Generate CLAUDE.md
-  await generateClaudeMd(agentRoot, characterConfig, projectConfig)
-  
-  // Generate .mcp.json
-  await generateMcpJson(agentRoot, characterConfig)
-  
-  // Generate launch scripts
-  await generateScripts(agentRoot, characterConfig)
-  
-  // Generate project commands if project board is enabled
-  if (projectConfig) {
-    await generateProjectCommands(agentRoot, characterConfig, projectConfig)
+  try {
+    // Generate CLAUDE.md
+    await generateClaudeMd(agentRoot, characterConfig, projectConfig)
+    
+    // Generate .mcp.json
+    await generateMcpJson(agentRoot, characterConfig)
+    
+    // Generate launch scripts
+    await generateScripts(agentRoot, characterConfig)
+    
+    // Generate project commands if project board is enabled
+    if (projectConfig) {
+      await generateProjectCommands(agentRoot, characterConfig, projectConfig)
+    }
+    
+    // Generate Dockerfile
+    await generateDockerfile(agentRoot, characterConfig)
+    
+    // Generate .env file
+    await generateEnvFile(agentRoot, characterConfig, { repoUrl })
+  } catch (error) {
+    console.error(`Error generating configurations for ${characterConfig.name}:`, error)
+    throw error
   }
-  
-  // Generate Dockerfile
-  await generateDockerfile(agentRoot, characterConfig)
-  
-  // Generate .env file
-  await generateEnvFile(agentRoot, characterConfig, { repoUrl })
 }
 
 async function generateClaudeMd(agentRoot, config, projectConfig) {
   const templatePath = path.join(__dirname, '../../templates/claude/CLAUDE.md.template')
-  let template = await fs.readFile(templatePath, 'utf-8')
+  let template
   
-  // If template doesn't exist, use a default
-  if (!template) {
+  try {
+    template = await fs.readFile(templatePath, 'utf-8')
+  } catch (error) {
+    console.warn(`Could not read template at ${templatePath}, using default template`)
+    template = getDefaultClaudeTemplate()
+  }
+  
+  // If template is empty, use a default
+  if (!template || template.trim() === '') {
     template = getDefaultClaudeTemplate()
   }
   
   const teamIdentity = generateTeamIdentity(config, config.theme, config.teamNumber)
+  
+  // Register Handlebars helpers
+  Handlebars.registerHelper('json', function(context) {
+    return JSON.stringify(context, null, 2)
+  })
   
   const data = {
     ...config,
@@ -49,13 +66,22 @@ async function generateClaudeMd(agentRoot, config, projectConfig) {
     projectId: projectConfig?.projectId || '',
     statusFieldId: projectConfig?.statusFieldId || '',
     hasProjectBoard: !!projectConfig,
-    catchphrases: config.personality.catchphrases.map(c => `"${c}"`).join(', ')
+    catchphrases: config.personality.catchphrases.map(c => `"${c}"`).join(', '),
+    hostName: config.host,
+    containerName: config.docker.containerName,
+    dockerNetwork: config.docker.network
   }
   
-  const compiled = Handlebars.compile(template)
-  const content = compiled(data)
-  
-  await fs.writeFile(path.join(agentRoot, 'CLAUDE.md'), content)
+  try {
+    const compiled = Handlebars.compile(template)
+    const content = compiled(data)
+    
+    await fs.ensureDir(agentRoot)
+    await fs.writeFile(path.join(agentRoot, 'CLAUDE.md'), content)
+  } catch (error) {
+    console.error(`Error compiling/writing CLAUDE.md for ${config.name}:`, error)
+    throw error
+  }
 }
 
 async function generateMcpJson(agentRoot, config) {
@@ -101,11 +127,16 @@ async function generateMcpJson(agentRoot, config) {
 }
 
 async function generateScripts(agentRoot, config) {
+  // Get catchphrase safely
+  const catchphrase = config.personality.catchphrases && config.personality.catchphrases.length > 0 
+    ? config.personality.catchphrases[0] 
+    : "Let's get started!"
+  
   // Launch script
   const launchScript = `#!/bin/bash
 # Launch script for ${config.emoji} ${config.name}
 
-echo "${config.emoji} ${config.name} says: \\"${config.personality.catchphrases[0]}\\""
+echo "${config.emoji} ${config.name} says: \\"${catchphrase}\\""
 echo "Starting services on ports ${config.ports.backend} (backend) and ${config.ports.frontend} (frontend)..."
 
 # Build if needed
