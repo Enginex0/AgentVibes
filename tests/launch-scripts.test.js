@@ -16,23 +16,35 @@ const TEST_OUTPUT_DIR = path.join(process.cwd(), 'tests', 'launch-scripts-output
 
 test('SORAORC Launch Scripts', async (t) => {
 
-  // Setup before each test
-  await t.beforeEach(async () => {
+  // Helper function to setup test directory
+  const setupTestDir = async () => {
     await fs.ensureDir(TEST_OUTPUT_DIR)
     await fs.emptyDir(TEST_OUTPUT_DIR)
-  })
+  }
 
-  // Cleanup after each test
-  await t.afterEach(async () => {
+  // Helper function to cleanup test directory
+  const cleanupTestDir = async () => {
     try {
       await fs.remove(TEST_OUTPUT_DIR)
     } catch (error) {
       // Ignore cleanup errors
       console.error('Cleanup error:', error.message)
     }
-  })
+  }
 
-  await t.test('should generate individual agent launch scripts with correct content', async () => {
+  // Wrapper function to handle setup and cleanup for each test
+  const withTestDir = async (testName, testFn) => {
+    await t.test(testName, async () => {
+      await setupTestDir()
+      try {
+        await testFn()
+      } finally {
+        await cleanupTestDir()
+      }
+    })
+  }
+
+  await withTestDir('should generate individual agent launch scripts with correct content', async () => {
     const theme = await loadThemeByName('matrix')
     const teams = theme.agents.slice(0, 1).map((agent, index) => ({
       ...agent,
@@ -75,7 +87,7 @@ test('SORAORC Launch Scripts', async (t) => {
     assert.ok(stats.mode & 0o111, 'Launch script should be executable')
   })
 
-  await t.test('should generate SORAORC-style orchestration scripts', async () => {
+  await withTestDir('should generate SORAORC-style orchestration scripts', async () => {
     const theme = await loadThemeByName('matrix')
     const teams = theme.agents.slice(0, 2).map((agent, index) => ({
       ...agent,
@@ -124,7 +136,7 @@ test('SORAORC Launch Scripts', async (t) => {
     assert.ok(launchContent.includes('Teams to launch: 2'), 'Should show team count')
   })
 
-  await t.test('should properly escape color variables in bash scripts', async () => {
+  await withTestDir('should properly escape color variables in bash scripts', async () => {
     const theme = await loadThemeByName('matrix')
     const teams = theme.agents.slice(0, 1).map((agent, index) => ({
       ...agent,
@@ -165,7 +177,7 @@ test('SORAORC Launch Scripts', async (t) => {
     assert.ok(!scriptContent.includes('${RED}') || scriptContent.includes('\\${RED}'), 'Color variables should be properly escaped')
   })
 
-  await t.test('should substitute all template variables correctly', async () => {
+  await withTestDir('should substitute all template variables correctly', async () => {
     const theme = await loadThemeByName('matrix')
     const teams = theme.agents.slice(0, 1).map((agent, index) => ({
       ...agent,
@@ -207,7 +219,7 @@ test('SORAORC Launch Scripts', async (t) => {
     assert.ok(!scriptContent.includes('}}'), 'No unprocessed template variables should remain')
   })
 
-  await t.test('should generate valid bash script syntax', async () => {
+  await withTestDir('should generate valid bash script syntax', async () => {
     // Skip bash syntax validation on Windows
     if (os.platform() === 'win32') {
       console.log('Skipping bash syntax validation on Windows')
@@ -260,7 +272,7 @@ test('SORAORC Launch Scripts', async (t) => {
     }
   })
 
-  await t.test('should include proper SORAORC formatting elements', async () => {
+  await withTestDir('should include proper SORAORC formatting elements', async () => {
     const theme = await loadThemeByName('matrix')
     const teams = theme.agents.slice(0, 2).map((agent, index) => ({
       ...agent,
@@ -298,7 +310,7 @@ test('SORAORC Launch Scripts', async (t) => {
     assert.ok(scriptContent.includes('💡 Powered by AgentVibes'), 'Should include powered by message')
   })
 
-  await t.test('should handle port conflicts correctly', async () => {
+  await withTestDir('should handle port conflicts correctly', async () => {
     const theme = await loadThemeByName('matrix')
     const teams = theme.agents.slice(0, 2).map((agent, index) => ({
       ...agent,
@@ -337,7 +349,7 @@ test('SORAORC Launch Scripts', async (t) => {
     assert.ok(downContent.includes('xargs kill -9'), 'Should include forced process termination')
   })
 
-  await t.test('should generate health check functionality', async () => {
+  await withTestDir('should generate health check functionality', async () => {
     const theme = await loadThemeByName('matrix')
     const teams = theme.agents.slice(0, 1).map((agent, index) => ({
       ...agent,
@@ -380,7 +392,7 @@ test('SORAORC Launch Scripts', async (t) => {
     assert.ok(agentContent.includes('Backend API at http://localhost:3011'), 'Should report backend URL')
   })
 
-  await t.test('should handle multiple themes in orchestration scripts', async () => {
+  await withTestDir('should handle multiple themes in orchestration scripts', async () => {
     // Load both Matrix and Anime themes
     const matrixTheme = await loadThemeByName('matrix')
     const animeTheme = await loadThemeByName('anime')
