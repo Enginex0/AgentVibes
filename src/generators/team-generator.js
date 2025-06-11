@@ -512,10 +512,10 @@ TOTAL_COUNT=${teams.length}
 ${teams.map((team, index) => `
 echo -n "├─ ${index === teams.length - 1 ? '└─' : '├─'} ${team.emoji} ${team.name}: "
 if curl -s http://localhost:${team.ports?.backend || 3000}/health > /dev/null 2>&1 || curl -s http://localhost:${team.ports?.backend || 3000} > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ Running${NC} (Port: ${team.ports?.backend || 3000})"
+    echo -e "\\\\$\{GREEN}✅ Running\\\\$\{NC} (Port: ${team.ports?.backend || 3000})"
     RUNNING_COUNT=$((RUNNING_COUNT + 1))
 else
-    echo -e "${RED}❌ Not running${NC} (Port: ${team.ports?.backend || 3000})"
+    echo -e "\\\\$\{RED}❌ Not running\\\\$\{NC} (Port: ${team.ports?.backend || 3000})"
 fi`).join('\n')}
 
 echo ""
@@ -530,11 +530,11 @@ fi`).join('\n')}
 echo ""
 echo "================================================================================"
 if [ $RUNNING_COUNT -eq $TOTAL_COUNT ]; then
-    echo -e "${GREEN}🚀 ALL TEAMS RUNNING ($RUNNING_COUNT/$TOTAL_COUNT)${NC}"
+    echo -e "\\\\$\{GREEN}🚀 ALL TEAMS RUNNING ($RUNNING_COUNT/$TOTAL_COUNT)\\\\$\{NC}"
 elif [ $RUNNING_COUNT -gt 0 ]; then
-    echo -e "${YELLOW}⚠️  PARTIAL OPERATION ($RUNNING_COUNT/$TOTAL_COUNT running)${NC}"
+    echo -e "\\\\$\{YELLOW}⚠️  PARTIAL OPERATION ($RUNNING_COUNT/$TOTAL_COUNT running)\\\\$\{NC}"
 else
-    echo -e "${RED}🛑 ALL TEAMS STOPPED (0/$TOTAL_COUNT running)${NC}"
+    echo -e "\\\\$\{RED}🛑 ALL TEAMS STOPPED (0/$TOTAL_COUNT running)\\\\$\{NC}"
 fi
 echo "================================================================================"
 echo ""

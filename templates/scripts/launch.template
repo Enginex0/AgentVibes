@@ -192,7 +192,7 @@ echo ""
 echo "⚠️  HOSTS FILE UPDATE REQUIRED:"
 echo "Add the following entries to /etc/hosts (or C:\\Windows\\System32\\drivers\\etc\\hosts on Windows):"
 echo ""
-echo -e "${CYAN}127.0.0.1   {{host}}${NC}"
+echo -e "\\$\{CYAN}127.0.0.1   {{host}}\\$\{NC}"
 echo ""
 
 echo "💬 {{emoji}} {{name}} says: \"{{#each personality.catchphrases}}{{#if @first}}{{this}}{{/if}}{{/each}}\""
