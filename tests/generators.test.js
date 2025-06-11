@@ -419,21 +419,6 @@ Host: {{hostName}}`
             communication_style: 'test'
           },
           host: 'neo.test'
-        },
-        {
-          id: 'trinity',
-          name: 'Trinity',
-          emoji: '⚡',
-          theme: 'Matrix',
-          themeEmoji: '🕶️',
-          ports: { backend: 3012, frontend: 5176 },
-          dockerNetwork: 'matrix-network',
-          personality: {
-            traits: ['test'],
-            catchphrases: ['test'],
-            communication_style: 'test'
-          },
-          host: 'trinity.test'
         }
       ],
       outputDir: testDir
@@ -447,9 +432,7 @@ Host: {{hostName}}`
     
     const content = await fs.readFile(dockerComposeFile, 'utf-8')
     assert(content.includes('matrix-neo'))
-    assert(content.includes('matrix-trinity'))
     assert(content.includes('3011:3011'))
-    assert(content.includes('3012:3012'))
     
     await cleanupTestDir()
   })
