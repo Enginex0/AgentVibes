@@ -307,16 +307,89 @@ async function generateLaunchScripts(outputDir, teams) {
   
   // Launch all teams script
   const launchAll = `#!/bin/bash
-# Launch all agentic teams
-echo "🚀 Launching all agentic teams..."
+# Launch all agentic teams - AgentVibes
 
-${teams.map(team => `
-echo "Starting ${team.emoji} ${team.name}..."
-cd agents/${team.id} && ./launch &
+set -e
+
+# Colors for output
+RED='\\033[0;31m'
+GREEN='\\033[0;32m'
+YELLOW='\\033[1;33m'
+BLUE='\\033[0;34m'
+CYAN='\\033[0;36m'
+NC='\\033[0m' # No Color
+
+clear
+
+echo "================================================================================"
+echo "AGENTVIBES MULTI-AGENT ORCHESTRATOR v1.0"
+echo "================================================================================"
+echo ""
+echo "🔥 Starting all agentic teams..."
+echo "📁 Working directory: $(pwd)"
+echo "🎭 Teams to launch: ${teams.length}"
+echo ""
+
+echo "TEAM CONFIGURATION:"
+${teams.map((team, index) => `echo "├─ ${index === teams.length - 1 ? '└─' : '├─'} ${team.emoji} ${team.name} (${team.theme}) - Ports: ${team.ports?.backend || 'N/A'}/${team.ports?.frontend || 'N/A'}"`).join('\n')}
+echo ""
+
+echo "🚀 LAUNCHING SEQUENCE:"
+LAUNCH_PIDS=()
+
+${teams.map((team, index) => `
+echo "├─ ${index === teams.length - 1 ? '└─' : '├─'} Starting ${team.emoji} ${team.name}..."
+cd agents/${team.id}
+if [ -f "./launch" ]; then
+    ./launch > ../launch-${team.id}.log 2>&1 &
+    LAUNCH_PIDS+=($!)
+    echo "   📋 PID: $! | 📊 Log: agents/launch-${team.id}.log"
+else
+    echo "   ❌ Launch script not found for ${team.name}"
+fi
+cd ../..
+sleep 2
 `).join('')}
 
-echo "✅ All teams launched!"
-echo "Check status with: ./scripts/status-check.sh"
+echo ""
+echo "⏳ Waiting for all services to start..."
+sleep 10
+
+echo ""
+echo "🔍 HEALTH CHECK:"
+HEALTHY_COUNT=0
+${teams.map((team, index) => `
+if curl -s http://localhost:${team.ports?.backend || 3000}/health > /dev/null 2>&1 || curl -s http://localhost:${team.ports?.backend || 3000} > /dev/null 2>&1; then
+    echo "├─ ✅ ${team.emoji} ${team.name} - Backend healthy"
+    HEALTHY_COUNT=$((HEALTHY_COUNT + 1))
+else
+    echo "├─ ⚠️  ${team.emoji} ${team.name} - Starting up..."
+fi`).join('\n')}
+
+echo ""
+echo "================================================================================"
+if [ $HEALTHY_COUNT -eq ${teams.length} ]; then
+    echo "🚀 ALL TEAMS LAUNCHED SUCCESSFULLY"
+else
+    echo "🔄 TEAMS STARTING ($HEALTHY_COUNT/${teams.length} ready)"
+fi
+echo "================================================================================"
+echo ""
+
+echo "ACCESS POINTS:"
+${teams.map(team => `echo "├─ ${team.emoji} ${team.name}: http://${team.host || 'localhost'}:${team.ports?.frontend || 'N/A'}"`).join('\n')}
+echo ""
+
+echo "USEFUL COMMANDS:"
+echo "├─ 🔍 Status check: ./scripts/status-check.sh"
+echo "├─ 📊 View logs:    tail -f agents/launch-*.log"
+echo "└─ 🛑 Stop all:     ./scripts/down-all-teams.sh"
+echo ""
+
+echo "💡 Powered by AgentVibes - https://github.com/paulpreibisch/AgentVibes"
+echo "🐦 Follow: @997Fire"
+echo ""
+echo "================================================================================"
 `
   
   await fs.writeFile(
@@ -327,15 +400,80 @@ echo "Check status with: ./scripts/status-check.sh"
   
   // Down all teams script
   const downAll = `#!/bin/bash
-# Stop all agentic teams
-echo "🛑 Stopping all agentic teams..."
+# Stop all agentic teams - AgentVibes
 
-${teams.map(team => `
-echo "Stopping ${team.emoji} ${team.name}..."
-cd agents/${team.id} && ./down
+set -e
+
+# Colors for output
+RED='\\033[0;31m'
+GREEN='\\033[0;32m'
+YELLOW='\\033[1;33m'
+BLUE='\\033[0;34m'
+CYAN='\\033[0;36m'
+NC='\\033[0m' # No Color
+
+clear
+
+echo "================================================================================"
+echo "AGENTVIBES SHUTDOWN ORCHESTRATOR v1.0"
+echo "================================================================================"
+echo ""
+echo "🛑 Stopping all agentic teams..."
+echo "📁 Working directory: $(pwd)"
+echo "🎭 Teams to stop: ${teams.length}"
+echo ""
+
+echo "SHUTDOWN SEQUENCE:"
+STOPPED_COUNT=0
+
+${teams.map((team, index) => `
+echo "├─ ${index === teams.length - 1 ? '└─' : '├─'} Stopping ${team.emoji} ${team.name}..."
+cd agents/${team.id}
+if [ -f "./down" ]; then
+    if ./down > /dev/null 2>&1; then
+        echo "   ✅ ${team.name} stopped successfully"
+        STOPPED_COUNT=$((STOPPED_COUNT + 1))
+    else
+        echo "   ⚠️  ${team.name} may have already been stopped"
+        STOPPED_COUNT=$((STOPPED_COUNT + 1))
+    fi
+else
+    echo "   ❌ Down script not found for ${team.name}"
+fi
+cd ../..
 `).join('')}
 
-echo "✅ All teams stopped!"
+echo ""
+echo "🧹 CLEANUP OPERATIONS:"
+echo "├─ 🔍 Checking for lingering processes..."
+
+# Kill any remaining processes on known ports
+${teams.map(team => `
+if lsof -ti:${team.ports?.backend || 3000} > /dev/null 2>&1; then
+    echo "├─ 🔧 Cleaning up port ${team.ports?.backend || 3000} (${team.name})"
+    lsof -ti:${team.ports?.backend || 3000} | xargs kill -9 2>/dev/null || true
+fi
+if lsof -ti:${team.ports?.frontend || 5000} > /dev/null 2>&1; then
+    echo "├─ 🔧 Cleaning up port ${team.ports?.frontend || 5000} (${team.name})"
+    lsof -ti:${team.ports?.frontend || 5000} | xargs kill -9 2>/dev/null || true
+fi`).join('\n')}
+
+echo "└─ ✅ Cleanup completed"
+echo ""
+
+echo "================================================================================"
+if [ $STOPPED_COUNT -eq ${teams.length} ]; then
+    echo "🛑 ALL TEAMS STOPPED SUCCESSFULLY"
+else
+    echo "⚠️  PARTIAL SHUTDOWN ($STOPPED_COUNT/${teams.length} stopped)"
+fi
+echo "================================================================================"
+echo ""
+
+echo "💡 Powered by AgentVibes - https://github.com/paulpreibisch/AgentVibes"
+echo "🐦 Follow: @997Fire"
+echo ""
+echo "================================================================================"
 `
   
   await fs.writeFile(
@@ -346,18 +484,71 @@ echo "✅ All teams stopped!"
   
   // Status check script
   const statusCheck = `#!/bin/bash
-# Check status of all teams
-echo "📊 Team Status Check"
-echo "===================="
+# Check status of all teams - AgentVibes
 
-${teams.map(team => `
-echo -n "${team.emoji} ${team.name}: "
-if curl -s http://localhost:${team.ports.backend}/health > /dev/null; then
-  echo "✅ Running"
+# Colors for output
+RED='\\033[0;31m'
+GREEN='\\033[0;32m'
+YELLOW='\\033[1;33m'
+BLUE='\\033[0;34m'
+CYAN='\\033[0;36m'
+NC='\\033[0m' # No Color
+
+clear
+
+echo "================================================================================"
+echo "AGENTVIBES STATUS MONITOR v1.0"
+echo "================================================================================"
+echo ""
+echo "📊 Checking status of all agentic teams..."
+echo "📁 Working directory: $(pwd)"
+echo "🎭 Teams to check: ${teams.length}"
+echo ""
+
+echo "TEAM STATUS:"
+RUNNING_COUNT=0
+TOTAL_COUNT=${teams.length}
+
+${teams.map((team, index) => `
+echo -n "├─ ${index === teams.length - 1 ? '└─' : '├─'} ${team.emoji} ${team.name}: "
+if curl -s http://localhost:${team.ports?.backend || 3000}/health > /dev/null 2>&1 || curl -s http://localhost:${team.ports?.backend || 3000} > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ Running${NC} (Port: ${team.ports?.backend || 3000})"
+    RUNNING_COUNT=$((RUNNING_COUNT + 1))
 else
-  echo "❌ Not running"
+    echo -e "${RED}❌ Not running${NC} (Port: ${team.ports?.backend || 3000})"
+fi`).join('\n')}
+
+echo ""
+echo "PORT USAGE:"
+${teams.map(team => `
+if lsof -i :${team.ports?.backend || 3000} > /dev/null 2>&1; then
+    echo "├─ ✅ Port ${team.ports?.backend || 3000} (${team.name}) - In use"
+else
+    echo "├─ ⚪ Port ${team.ports?.backend || 3000} (${team.name}) - Available"
+fi`).join('\n')}
+
+echo ""
+echo "================================================================================"
+if [ $RUNNING_COUNT -eq $TOTAL_COUNT ]; then
+    echo -e "${GREEN}🚀 ALL TEAMS RUNNING ($RUNNING_COUNT/$TOTAL_COUNT)${NC}"
+elif [ $RUNNING_COUNT -gt 0 ]; then
+    echo -e "${YELLOW}⚠️  PARTIAL OPERATION ($RUNNING_COUNT/$TOTAL_COUNT running)${NC}"
+else
+    echo -e "${RED}🛑 ALL TEAMS STOPPED (0/$TOTAL_COUNT running)${NC}"
 fi
-`).join('')}
+echo "================================================================================"
+echo ""
+
+echo "USEFUL COMMANDS:"
+echo "├─ 🚀 Start all:    ./scripts/launch-all-teams.sh"
+echo "├─ 🛑 Stop all:     ./scripts/down-all-teams.sh"
+echo "└─ 📊 Check again:  ./scripts/status-check.sh"
+echo ""
+
+echo "💡 Powered by AgentVibes - https://github.com/paulpreibisch/AgentVibes"
+echo "🐦 Follow: @997Fire"
+echo ""
+echo "================================================================================"
 `
   
   await fs.writeFile(
