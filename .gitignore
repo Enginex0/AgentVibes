@@ -34,3 +34,6 @@ agentvibes.org/
 
 # LinkedIn articles (personal drafts)
 linkedin/
+
+# Scripts folder (contains fix-audio-tunnel and other dev scripts)
+scripts/
