@@ -1,5 +1,102 @@
 # 🎤 AgentVibes Release Notes
 
+## 📦 v2.0.17-beta.12 - Sequential Audio & Target Language Replay (2025-10-16)
+
+### 🎯 AI Summary
+
+This release significantly improves the language learning experience by solving audio playback timing issues and adding essential replay functionality. Users can now enjoy seamless sequential audio playback where translations wait for the main language to finish, and a new replay command allows learners to hear target language audio again without triggering new translations.
+
+### ✨ New Features
+
+#### Sequential Audio Playback
+- **No More Overlapping Audio**: Target language now waits for main language to complete
+- **Lock File Mechanism**: Uses `/tmp/agentvibes-audio.lock` for coordination
+- **Precise Timing**: Detects audio duration with ffprobe for accurate sequencing
+- **Auto-timeout**: 30-second safety timeout prevents stuck locks
+
+#### Target Language Replay Command
+- **New Command**: `/agent-vibes:replay-target` replays last target language audio
+- **Perfect for Learning**: Hear translations again without re-triggering TTS
+- **Automatic Tracking**: Saves target audio path to `.claude/last-target-audio.txt`
+- **Works Seamlessly**: Integrated with language learning mode
+
+### 🐛 Bug Fixes
+
+#### Audio Quality
+- **128kbps Bitrate Preserved**: Fixed ffmpeg downsampling from 128kbps to 64kbps
+- **No More Static**: Eliminated quality degradation during audio padding
+- **Added `-b:a 128k` Parameter**: Explicit bitrate specification in ffmpeg
+
+#### JSON Escaping (ElevenLabs)
+- **Robust API Communication**: Now uses jq for proper JSON escaping
+- **Special Characters Fixed**: Handles quotes, backslashes, and newlines correctly
+- **Prevents API Errors**: No more "Invalid \\escape" errors from ElevenLabs
+
+### 📁 Modified Files
+
+- `.claude/hooks/play-tts-piper.sh` - Added sequential playback + target tracking
+- `.claude/hooks/play-tts-elevenlabs.sh` - Added sequential playback + target tracking + JSON fix
+- `.claude/commands/agent-vibes/replay-target.md` - New slash command
+- `.claude/hooks/replay-target-audio.sh` - Replay implementation
+
+### 🎓 User Impact
+
+#### Language Learners
+✅ **Crystal Clear Audio**: No overlapping English and Spanish
+✅ **Practice Listening**: Replay target language as many times as needed
+✅ **Better Quality**: Full 128kbps audio without static or degradation
+
+#### All Users
+✅ **More Reliable**: Proper JSON escaping prevents API failures
+✅ **Smoother Experience**: Sequential playback feels more natural
+
+### 🚀 How to Use
+
+**Enable Language Learning Mode:**
+```bash
+/agent-vibes:learn spanish
+```
+
+**Replay Last Target Audio:**
+```bash
+/agent-vibes:replay-target
+```
+
+**The Flow:**
+1. Ask a question or make a statement
+2. Hear English response (waits to complete)
+3. Hear Spanish translation (plays after English)
+4. Use `/agent-vibes:replay-target` to hear Spanish again
+
+### 🔧 Technical Details
+
+**Sequential Playback Implementation:**
+- Lock file created before audio starts
+- Audio duration detected with ffprobe
+- Background process waits for duration then releases lock
+- Next audio waits up to 30 seconds for lock release
+
+**Target Language Tracking:**
+- Only tracks when `CURRENT_LANGUAGE != "english"`
+- Path saved to project-local `.claude/last-target-audio.txt`
+- Replay script validates file exists before playback
+
+### 📝 Breaking Changes
+
+None - fully backward compatible with existing installations.
+
+### 🐛 Known Issues
+
+None reported.
+
+---
+
+**Previous Release:** v2.0.17-beta.11
+**Release Date:** October 16, 2025
+**Git Commit:** f4d3899
+
+---
+
 ## 📦 v2.0.16 - Remote Audio Setup Guide & Scripts (2025-10-12)
 
 ### 🤖 AI Summary
