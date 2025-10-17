@@ -179,9 +179,9 @@ else
 fi
 
 # @function get_speech_speed
-# @intent Read speed config for ElevenLabs API
-# @why ElevenLabs uses speed multiplier (0.5=slower, 1.0=normal, 2.0=faster)
-# @returns Speed value for ElevenLabs API (matches our user-facing scale)
+# @intent Read speed config and map to ElevenLabs API range (0.7-1.2)
+# @why ElevenLabs only supports 0.7 (slower) to 1.2 (faster), must map user scale
+# @returns Speed value for ElevenLabs API (clamped to 0.7-1.2)
 get_speech_speed() {
   local config_dir=""
 
@@ -211,31 +211,59 @@ get_speech_speed() {
   local legacy_main_speed_file="$config_dir/piper-speech-rate.txt"
   local legacy_target_speed_file="$config_dir/piper-target-speech-rate.txt"
 
+  local user_speed="1.0"
+
   # If this is a non-English voice and target config exists, use it
   if [[ "$CURRENT_LANGUAGE" != "english" ]]; then
     if [[ -f "$target_speed_file" ]]; then
-      cat "$target_speed_file" 2>/dev/null || echo "1.0"
-      return
+      user_speed=$(cat "$target_speed_file" 2>/dev/null || echo "1.0")
     elif [[ -f "$legacy_target_speed_file" ]]; then
-      cat "$legacy_target_speed_file" 2>/dev/null || echo "1.0"
-      return
+      user_speed=$(cat "$legacy_target_speed_file" 2>/dev/null || echo "1.0")
+    else
+      user_speed="0.5"  # Default slower for learning
+    fi
+  else
+    # Otherwise use main config if available
+    if [[ -f "$main_speed_file" ]]; then
+      user_speed=$(grep -v '^#' "$main_speed_file" 2>/dev/null | grep -v '^$' | tail -1 || echo "1.0")
+    elif [[ -f "$legacy_main_speed_file" ]]; then
+      user_speed=$(grep -v '^#' "$legacy_main_speed_file" 2>/dev/null | grep -v '^$' | tail -1 || echo "1.0")
     fi
   fi
 
-  # Otherwise use main config if available
-  if [[ -f "$main_speed_file" ]]; then
-    grep -v '^#' "$main_speed_file" 2>/dev/null | grep -v '^$' | tail -1 || echo "1.0"
-    return
-  elif [[ -f "$legacy_main_speed_file" ]]; then
-    grep -v '^#' "$legacy_main_speed_file" 2>/dev/null | grep -v '^$' | tail -1 || echo "1.0"
-    return
-  fi
+  # Map user scale (0.5=slower, 1.0=normal, 2.0=faster, 3.0=very fast)
+  # to ElevenLabs range (0.7=slower, 1.0=normal, 1.2=faster)
+  # Formula: elevenlabs_speed = 0.7 + (user_speed - 0.5) * 0.2
+  # This maps: 0.5→0.7, 1.0→0.8, 2.0→1.0, 3.0→1.2
+  # Actually, let's use a better mapping:
+  # 0.5x → 0.7 (slowest ElevenLabs)
+  # 1.0x → 1.0 (normal)
+  # 2.0x → 1.15
+  # 3.0x → 1.2 (fastest ElevenLabs)
 
-  # Default: 1.0 (normal speed) for English, 0.5 (slower) for learning
-  if [[ "$CURRENT_LANGUAGE" != "english" ]]; then
-    echo "0.5"
+  if command -v bc &> /dev/null; then
+    local eleven_speed
+    if (( $(echo "$user_speed <= 0.5" | bc -l) )); then
+      eleven_speed="0.7"
+    elif (( $(echo "$user_speed >= 3.0" | bc -l) )); then
+      eleven_speed="1.2"
+    elif (( $(echo "$user_speed <= 1.0" | bc -l) )); then
+      # Map 0.5-1.0 to 0.7-1.0
+      eleven_speed=$(echo "scale=2; 0.7 + ($user_speed - 0.5) * 0.6" | bc -l)
+    else
+      # Map 1.0-3.0 to 1.0-1.2
+      eleven_speed=$(echo "scale=2; 1.0 + ($user_speed - 1.0) * 0.1" | bc -l)
+    fi
+    echo "$eleven_speed"
   else
-    echo "1.0"
+    # Fallback without bc: just clamp to safe values
+    if (( $(awk 'BEGIN {print ("'$user_speed'" <= 0.5)}') )); then
+      echo "0.7"
+    elif (( $(awk 'BEGIN {print ("'$user_speed'" >= 2.0)}') )); then
+      echo "1.2"
+    else
+      echo "1.0"
+    fi
   fi
 }
 
