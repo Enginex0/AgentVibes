@@ -92,11 +92,60 @@ get_agent_voice() {
   fi
 }
 
+# Map ElevenLabs voice to Piper equivalent
+map_voice_to_provider() {
+  local elevenlabs_voice="$1"
+  local provider="$2"
+
+  # If provider is elevenlabs or empty, return as-is
+  if [[ "$provider" != "piper" ]]; then
+    echo "$elevenlabs_voice"
+    return
+  fi
+
+  # Map ElevenLabs voices to Piper equivalents
+  case "$elevenlabs_voice" in
+    "Jessica Anne Bogart"|"Aria")
+      echo "en_US-lessac-medium"
+      ;;
+    "Matthew Schmitz"|"Archer"|"Michael")
+      echo "en_US-danny-low"
+      ;;
+    "Burt Reynolds"|"Cowboy Bob")
+      echo "en_US-joe-medium"
+      ;;
+    "Tiffany"|"Ms. Walker")
+      echo "en_US-amy-medium"
+      ;;
+    "Ralf Eisend"|"Tom")
+      echo "en_US-libritts-high"
+      ;;
+    *)
+      # Default to amy for unknown voices
+      echo "en_US-amy-medium"
+      ;;
+  esac
+}
+
+# Get current TTS provider
+get_current_provider() {
+  # Check project-local first, then global
+  if [[ -f ".claude/tts-provider.txt" ]]; then
+    cat ".claude/tts-provider.txt" 2>/dev/null || echo "elevenlabs"
+  elif [[ -f "$HOME/.claude/tts-provider.txt" ]]; then
+    cat "$HOME/.claude/tts-provider.txt" 2>/dev/null || echo "elevenlabs"
+  else
+    echo "elevenlabs"
+  fi
+}
+
 # Inject TTS hook into agent activation instructions
 inject_tts() {
   local agent_file="$1"
   local agent_id=$(get_agent_id "$agent_file")
-  local agent_voice=$(get_agent_voice "$agent_id")
+  local elevenlabs_voice=$(get_agent_voice "$agent_id")
+  local current_provider=$(get_current_provider)
+  local agent_voice=$(map_voice_to_provider "$elevenlabs_voice" "$current_provider")
 
   # Check if already injected
   if has_tts_injection "$agent_file"; then
@@ -159,7 +208,11 @@ inject_tts() {
 
   mv "$agent_file.tmp" "$agent_file"
 
-  echo -e "${GREEN}✅ Injected TTS into: $(basename "$agent_file") → Voice: ${agent_voice:-default}${NC}"
+  if [[ "$current_provider" == "piper" ]] && [[ -n "$elevenlabs_voice" ]]; then
+    echo -e "${GREEN}✅ Injected TTS into: $(basename "$agent_file") → Voice: ${agent_voice:-default} (${current_provider}: ${elevenlabs_voice} → ${agent_voice})${NC}"
+  else
+    echo -e "${GREEN}✅ Injected TTS into: $(basename "$agent_file") → Voice: ${agent_voice:-default}${NC}"
+  fi
 }
 
 # Remove TTS injection from agent
