@@ -1,103 +1,312 @@
 # 🎤 AgentVibes Release Notes
 
-## 📦 v2.0.17-beta.12 - Sequential Audio & Target Language Replay (2025-10-16)
+## 📦 v2.0.17 - Major Feature Release (2025-10-17)
 
-### 🎯 AI Summary
+### 🎯 Overview
 
-This release significantly improves the language learning experience by solving audio playback timing issues and adding essential replay functionality. Users can now enjoy seamless sequential audio playback where translations wait for the main language to finish, and a new replay command allows learners to hear target language audio again without triggering new translations.
+This release represents a **major evolution** of AgentVibes, transforming it from a simple TTS tool into a comprehensive AI voice platform with **language learning**, **multi-provider support**, and **MCP integration** for Claude Desktop and Claude Code.
 
-### ✨ New Features
-
-#### Sequential Audio Playback
-- **No More Overlapping Audio**: Target language now waits for main language to complete
-- **Lock File Mechanism**: Uses `/tmp/agentvibes-audio.lock` for coordination
-- **Precise Timing**: Detects audio duration with ffprobe for accurate sequencing
-- **Auto-timeout**: 30-second safety timeout prevents stuck locks
-
-#### Target Language Replay Command
-- **New Command**: `/agent-vibes:replay-target` replays last target language audio
-- **Perfect for Learning**: Hear translations again without re-triggering TTS
-- **Automatic Tracking**: Saves target audio path to `.claude/last-target-audio.txt`
-- **Works Seamlessly**: Integrated with language learning mode
-
-### 🐛 Bug Fixes
-
-#### Audio Quality
-- **128kbps Bitrate Preserved**: Fixed ffmpeg downsampling from 128kbps to 64kbps
-- **No More Static**: Eliminated quality degradation during audio padding
-- **Added `-b:a 128k` Parameter**: Explicit bitrate specification in ffmpeg
-
-#### JSON Escaping (ElevenLabs)
-- **Robust API Communication**: Now uses jq for proper JSON escaping
-- **Special Characters Fixed**: Handles quotes, backslashes, and newlines correctly
-- **Prevents API Errors**: No more "Invalid \\escape" errors from ElevenLabs
-
-### 📁 Modified Files
-
-- `.claude/hooks/play-tts-piper.sh` - Added sequential playback + target tracking
-- `.claude/hooks/play-tts-elevenlabs.sh` - Added sequential playback + target tracking + JSON fix
-- `.claude/commands/agent-vibes/replay-target.md` - New slash command
-- `.claude/hooks/replay-target-audio.sh` - Replay implementation
-
-### 🎓 User Impact
-
-#### Language Learners
-✅ **Crystal Clear Audio**: No overlapping English and Spanish
-✅ **Practice Listening**: Replay target language as many times as needed
-✅ **Better Quality**: Full 128kbps audio without static or degradation
-
-#### All Users
-✅ **More Reliable**: Proper JSON escaping prevents API failures
-✅ **Smoother Experience**: Sequential playback feels more natural
-
-### 🚀 How to Use
-
-**Enable Language Learning Mode:**
-```bash
-/agent-vibes:learn spanish
-```
-
-**Replay Last Target Audio:**
-```bash
-/agent-vibes:replay-target
-```
-
-**The Flow:**
-1. Ask a question or make a statement
-2. Hear English response (waits to complete)
-3. Hear Spanish translation (plays after English)
-4. Use `/agent-vibes:replay-target` to hear Spanish again
-
-### 🔧 Technical Details
-
-**Sequential Playback Implementation:**
-- Lock file created before audio starts
-- Audio duration detected with ffprobe
-- Background process waits for duration then releases lock
-- Next audio waits up to 30 seconds for lock release
-
-**Target Language Tracking:**
-- Only tracks when `CURRENT_LANGUAGE != "english"`
-- Path saved to project-local `.claude/last-target-audio.txt`
-- Replay script validates file exists before playback
-
-### 📝 Breaking Changes
-
-None - fully backward compatible with existing installations.
-
-### 🐛 Known Issues
-
-None reported.
+**Release Date:** October 17, 2025
+**Git Tag:** v2.0.17
+**Commits Since v2.0.16:** 75 commits
 
 ---
 
-**Previous Release:** v2.0.17-beta.11
-**Release Date:** October 16, 2025
-**Git Commit:** f4d3899
+## 🌟 **New Features**
+
+### **1. Language Learning Mode (Breakthrough Feature)** 🌍
+
+Transform your coding sessions into language learning opportunities with dual-language TTS:
+
+```bash
+/agent-vibes:language english        # Set your native language
+/agent-vibes:target spanish          # Set language to learn
+/agent-vibes:learn                   # Enable learning mode
+```
+
+**Features:**
+- Speaks acknowledgments in BOTH languages (English first, then Spanish)
+- Direct translations with same personality/sentiment
+- Sequential playback (no overlapping audio)
+- Speech rate control (slow down target language for comprehension)
+- Auto-selects appropriate voices based on provider
+- Teacher greetings in target language
+- Replay target language: `/agent-vibes:replay-target`
+
+**Supported Languages:** Spanish, French, German, Italian, Portuguese, Chinese, Japanese, Korean, Russian, Arabic, Hindi, and 18+ more
+
+**Mixed Provider Support:** Use ElevenLabs for English + Piper for Spanish
+
+### **2. MCP Server Integration** 🎤
+
+AgentVibes now works with **Claude Desktop AND Claude Code** via the Model Context Protocol (MCP):
+
+```json
+{
+  "mcpServers": {
+    "agentvibes": {
+      "command": "npx",
+      "args": ["-y", "agentvibes@latest", "agentvibes-mcp-server"]
+    }
+  }
+}
+```
+
+**Benefits:**
+- Natural language control: "Switch to pirate personality"
+- Works in Claude Desktop, Claude Code (with MCP), and Warp
+- No need to memorize slash commands
+- Smart settings management (Claude Code: project-local, Claude Desktop: global)
+- Cross-platform compatibility (Windows/WSL support)
+
+### **3. Unified Speech Speed Control** ⚡
+
+Control playback speed across BOTH TTS providers with intuitive syntax:
+
+```bash
+/agent-vibes:set-speed 0.5x    # Slower (half speed)
+/agent-vibes:set-speed 1x      # Normal speed
+/agent-vibes:set-speed 2x      # Faster (double speed)
+/agent-vibes:set-speed 3x      # Very fast (triple speed)
+```
+
+**Features:**
+- Works with ElevenLabs AND Piper
+- Separate controls for main and target language
+- Automatic tongue twister demo after speed change
+- Intuitive scale: **0.5x=slower, 1x=normal, 2x=faster, 3x=very fast**
+- Auto-speaks confirmation in new speed
+
+**Default for Language Learning:**
+- Main voice: 1.0x (normal speed)
+- Target language: 0.5x (slower for better comprehension)
+
+### **4. SSH Audio Optimization** 🔊
+
+Perfect audio quality over remote SSH connections:
+
+**Auto-detects:**
+- VS Code Remote SSH sessions
+- Regular SSH connections
+- Cloud dev environments
+
+**Automatic conversion:**
+- 44.1kHz mono MP3 → 48kHz stereo WAV
+- Prevents static and audio artifacts
+- No manual configuration needed
+
+### **5. Enhanced Multi-Provider Support** 🎛️
+
+Seamless switching between TTS providers:
+
+```bash
+/agent-vibes:provider switch elevenlabs
+/agent-vibes:provider switch piper
+```
+
+**Improvements:**
+- Auto-resets voice to default when switching providers
+- Auto-speaks confirmation in new provider's voice
+- Non-interactive mode for MCP contexts
+- Voice compatibility checks
+- Mixed provider support (ElevenLabs + Piper)
 
 ---
 
-## 📦 v2.0.16 - Remote Audio Setup Guide & Scripts (2025-10-12)
+## 🐛 **Bug Fixes**
+
+### **Audio Quality & Playback**
+- Fixed MP3 bitrate preservation (128kbps maintained during padding)
+- Fixed audio player hanging issues (fully detached background processes)
+- Fixed ElevenLabs preview static (force MP3 output format)
+- Fixed overlapping audio in learning mode (sequential playback with locks)
+- Fixed SSH audio tunnel format conversion (48kHz stereo)
+
+### **Voice & Provider Management**
+- Fixed voice/provider mismatches in output style
+- Fixed voice compatibility when switching providers
+- Fixed target voice not updating when switching providers
+- Fixed MCP voice model compatibility (provider-aware voice selection)
+- Fixed BMAD plugin with Piper provider (voice mapping)
+
+### **Speed & Performance**
+- Fixed speed scale to match intuition (higher values = faster)
+- Fixed ElevenLabs API speed range (0.7-1.2, prevents clicking)
+- Fixed speech rate persistence across sessions
+
+### **MCP & Cross-Platform**
+- Fixed Windows npx execution (Node.js launcher instead of bash)
+- Fixed MCP non-interactive detection for provider switching
+- Fixed project vs global directory detection in Claude Desktop
+- Fixed environment variable propagation from Windows to WSL
+
+### **JSON & API**
+- Fixed JSON escaping in ElevenLabs API calls (special characters)
+- Fixed agentvibes-mcp-server subcommand routing
+
+---
+
+## 📚 **Documentation**
+
+### **Restructured Documentation**
+Created **10 separate documentation files** for better navigation:
+
+- `docs/quick-start.md` - Installation guide
+- `docs/language-learning-mode.md` - Full language learning tutorial
+- `docs/mcp-setup.md` - Claude Desktop/Warp/Code setup
+- `docs/providers.md` - Multi-provider support
+- `docs/commands.md` - All slash commands reference
+- `docs/personalities.md` - Personalities vs sentiments
+- `docs/voice-library.md` - Complete voice catalog
+- `docs/bmad-plugin.md` - BMAD integration
+- `docs/advanced-features.md` - Power user features
+- `docs/troubleshooting.md` - Common issues
+
+### **Windows Setup Guide**
+Complete rewrite of `mcp-server/WINDOWS_SETUP.md`:
+
+- NPX-based installation (no git clone needed)
+- Windows environment variables (%USERNAME%)
+- Three-column instruction tables (Desktop | Code | Code with MCP)
+- Piper (free) recommended over ElevenLabs (paid)
+- WSL setup for Piper
+- Clear prerequisite section
+
+### **README Improvements**
+- Reduced from 1,285 lines to 502 lines (60.9% reduction)
+- Modular structure with clear navigation
+- Language Learning Mode prominently featured
+- Updated tagline: "Finally! Your agents can talk back!"
+- All TOC links fixed (removed emojis for GitHub compatibility)
+
+---
+
+## 🏗️ **Architecture & Infrastructure**
+
+### **New Scripts & Tools**
+- `speed-manager.sh` - Unified speed control across providers
+- `learn-manager.sh` - Language learning state management
+- `replay-target-audio.sh` - Replay target language audio
+- `bin/mcp-server.js` - Cross-platform MCP launcher
+- `bin/mcp-server.sh` - Unix MCP launcher
+- `install-deps.js` - Automatic Python dependency installer
+
+### **Configuration Files**
+- `.claude/tts-learn-mode.txt` - Learning mode state
+- `.claude/tts-language.txt` - Main language
+- `.claude/tts-target-language.txt` - Target language
+- `.claude/tts-target-voice.txt` - Target language voice
+- `.claude/tts-speed.txt` - Main voice speed
+- `.claude/tts-target-speed.txt` - Target voice speed
+- `.claude/last-target-audio.txt` - Last target audio path
+
+**Note:** Claude Code supports project-local settings (`.claude/` in project directory) with global fallback (`~/.claude/`). Claude Desktop uses global settings only.
+
+### **Testing**
+- Added comprehensive test coverage (110 tests total)
+- New test suites: `speed-manager.bats`, `provider-manager.bats`
+- Fixed architectural test failures (project-local config)
+- All 110/110 tests passing ✅
+
+---
+
+## 📦 **Installation & Distribution**
+
+### **NPM Package Updates**
+- New subcommand: `npx agentvibes agentvibes-mcp-server`
+- Cross-platform launcher (Node.js + bash)
+- Automatic dependency installation
+- Windows/WSL compatibility
+
+### **File Changes**
+- **72 files changed**
+- **8,652 insertions**, **820 deletions**
+- New directories: `docs/`, `mcp-server/`, `scripts/`
+
+---
+
+## 🎨 **User Experience**
+
+### **Output Style Improvements**
+- Language Learning Mode protocol in output style
+- Voice selection now respects active provider
+- Auto-detects MCP vs interactive contexts
+- Sequential playback prevents audio overlap
+
+### **BMAD Plugin**
+- Provider-aware voice mapping
+- ElevenLabs → Piper voice translation
+- Works seamlessly with both providers
+
+---
+
+## 🔧 **Breaking Changes**
+
+### **None** - Fully backward compatible!
+
+- Legacy config files automatically migrated
+- Old commands still work
+- Graceful fallbacks for missing settings
+- Claude Code: Project-local settings (`.claude/`) take precedence over global (`~/.claude/`)
+
+---
+
+## 📊 **Statistics**
+
+- **Commits:** 75 commits since v2.0.16
+- **Contributors:** Paul Preibisch with Claude AI
+- **Lines of Code:** +8,652 insertions, -820 deletions
+- **New Features:** 5 major features
+- **Bug Fixes:** 20+ fixes
+- **Documentation Files:** 10+ new docs
+- **Test Coverage:** 110 tests (79 new tests)
+
+---
+
+## 📦 **Upgrade Instructions**
+
+### For NPM Users:
+```bash
+npm update -g agentvibes
+```
+
+### For NPX Users:
+```bash
+# No action needed - npx always uses latest
+npx agentvibes install
+```
+
+### For Claude Desktop MCP:
+```bash
+# Restart Claude Desktop to auto-update
+# Or manually update config to use @latest
+```
+
+---
+
+## 🔗 **Links**
+
+- **Website:** https://agentvibes.org
+- **Repository:** https://github.com/paulpreibisch/AgentVibes
+- **Documentation:** https://github.com/paulpreibisch/AgentVibes/tree/master/docs
+- **Issues:** https://github.com/paulpreibisch/AgentVibes/issues
+- **License:** Apache-2.0
+
+---
+
+## 📝 **Featured Article**
+
+Please give a like to: [**AgentVibes: Your AI Coding Assistant Can Finally Talk Back!**](https://www.linkedin.com/pulse/agent-vibes-your-ai-coding-assistant-can-finally-talk-paul-preibisch-abhkc/)
+
+Learn how AgentVibes transforms your AI coding experience with professional text-to-speech, language learning mode, and personality-driven voice interactions.
+
+---
+
+**Co-created by Paul Preibisch with Claude AI**
+**Copyright © 2025 Paul Preibisch**
+
+---
+
 
 ### 🤖 AI Summary
 

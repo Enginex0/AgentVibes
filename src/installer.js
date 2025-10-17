@@ -1,5 +1,46 @@
 #!/usr/bin/env node
 
+/**
+ * File: src/installer.js
+ *
+ * AgentVibes - Finally, your AI Agents can Talk Back! Text-to-Speech WITH personality for AI Assistants!
+ * Website: https://agentvibes.org
+ * Repository: https://github.com/paulpreibisch/AgentVibes
+ *
+ * Co-created by Paul Preibisch with Claude AI
+ * Copyright (c) 2025 Paul Preibisch
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * DISCLAIMER: This software is provided "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * express or implied, including but not limited to the warranties of
+ * merchantability, fitness for a particular purpose and noninfringement.
+ * In no event shall the authors or copyright holders be liable for any claim,
+ * damages or other liability, whether in an action of contract, tort or
+ * otherwise, arising from, out of or in connection with the software or the
+ * use or other dealings in the software.
+ *
+ * ---
+ *
+ * @fileoverview Interactive installer and updater for AgentVibes CLI
+ * @context Guides users through TTS provider selection, API key setup, and .claude/ directory installation
+ * @architecture Commander.js CLI with subcommands (install, update, status, setup-mcp-for-claude-desktop), interactive prompts via Inquirer
+ * @dependencies commander, inquirer, chalk, figlet, boxen, ora, fs/promises, node:child_process
+ * @entrypoints Run via `npx agentvibes install|update|status|setup-mcp-for-claude-desktop` or direct node execution
+ * @patterns Command pattern for CLI, interactive prompt flows, file copying with permission management, INIT_CWD for npx context
+ * @related package.json scripts, .claude/commands/agent-vibes/, .claude/hooks/, templates/, docs/ai-optimized-documentation-standards.md
+ */
+
 import { program } from 'commander';
 import path from 'node:path';
 import fs from 'node:fs/promises';
@@ -74,39 +115,71 @@ async function install(options = {}) {
   console.log(chalk.gray(`   Install location: ${currentDir}/.claude/`));
   console.log(chalk.gray(`   Package version: ${VERSION}`));
 
-  // Show latest release notes from RELEASE_NOTES.md
-  try {
-    const releaseNotesPath = path.join(__dirname, '..', 'RELEASE_NOTES.md');
-    const releaseNotes = await fs.readFile(releaseNotesPath, 'utf8');
-    const lines = releaseNotes.split('\n');
-
-    // Extract the first release section (v2.0.x format)
-    console.log(chalk.cyan('\n📰 Latest Release Notes:'));
-
-    let foundFirstRelease = false;
-    let lineCount = 0;
-    const maxLines = 8; // Show first 8 lines of latest release
-
-    for (const line of lines) {
-      if (line.startsWith('## 📦 v')) {
-        if (foundFirstRelease) break; // Stop at second release
-        foundFirstRelease = true;
-        console.log(chalk.white(line.replace('## 📦 ', '')));
-        continue;
+  // Show AI summary of latest release
+  console.log(
+    boxen(
+      chalk.white.bold('═══════════════════════════════════════════════════════════════\n') +
+      chalk.cyan.bold('  📦 AgentVibes v2.0.17 - Major Feature Release\n') +
+      chalk.white.bold('═══════════════════════════════════════════════════════════════\n\n') +
+      chalk.green.bold('🌟 BREAKTHROUGH FEATURES:\n\n') +
+      chalk.cyan('🌍 Language Learning Mode\n') +
+      chalk.gray('   • Learn a second language while coding!\n') +
+      chalk.gray('   • Spanish, Italian, French, Mandarin - you name it!\n') +
+      chalk.gray('   • Dual-language TTS (English → target language)\n') +
+      chalk.gray('   • Adjustable speech speed for comprehension\n\n') +
+      chalk.cyan('🎤 MCP Integration (Claude Desktop + Claude Code)\n') +
+      chalk.gray('   • Natural language control: "Switch to pirate personality"\n') +
+      chalk.gray('   • Works in Claude Desktop, Claude Code, and Warp\n') +
+      chalk.gray('   • No slash commands needed - just talk naturally!\n\n') +
+      chalk.cyan('⚡ Unified Speed Control\n') +
+      chalk.gray('   • 0.5x = Slower, 2x = Faster, 3x = Very Fast\n') +
+      chalk.gray('   • Works with BOTH ElevenLabs and Piper\n') +
+      chalk.gray('   • Automatic tongue twister demos\n\n') +
+      chalk.cyan('🔊 SSH Audio Optimization\n') +
+      chalk.gray('   • Crystal-clear audio over VS Code Remote SSH\n') +
+      chalk.gray('   • Auto-detects remote sessions\n\n') +
+      chalk.cyan('🎛️ Enhanced Multi-Provider Support\n') +
+      chalk.gray('   • Seamless ElevenLabs ↔ Piper switching\n') +
+      chalk.gray('   • Mixed provider support for learning mode\n\n') +
+      chalk.white('───────────────────────────────────────────────────────────────\n\n') +
+      chalk.yellow.bold('🐛 20+ BUG FIXES:\n') +
+      chalk.gray('   ✓ Fixed MP3 bitrate preservation (128kbps)\n') +
+      chalk.gray('   ✓ Fixed audio player hanging issues\n') +
+      chalk.gray('   ✓ Fixed voice/provider mismatches\n') +
+      chalk.gray('   ✓ Fixed Windows npx execution\n') +
+      chalk.gray('   ✓ Fixed JSON escaping in ElevenLabs API\n\n') +
+      chalk.white('───────────────────────────────────────────────────────────────\n\n') +
+      chalk.magenta.bold('📚 DOCUMENTATION OVERHAUL:\n') +
+      chalk.gray('   • 10 new documentation files\n') +
+      chalk.gray('   • Windows Setup Guide (NPX-based)\n') +
+      chalk.gray('   • README reduced 60% (1,285 → 502 lines)\n\n') +
+      chalk.white('───────────────────────────────────────────────────────────────\n\n') +
+      chalk.blue.bold('📊 BY THE NUMBERS:\n') +
+      chalk.gray('   • 75 commits since v2.0.16\n') +
+      chalk.gray('   • 72 files changed (+8,652 lines)\n') +
+      chalk.gray('   • 110 tests (79 new tests added)\n') +
+      chalk.gray('   • 5 major features, 20+ bug fixes\n\n') +
+      chalk.white.bold('═══════════════════════════════════════════════════════════════\n\n') +
+      chalk.green.bold('🚀 TRY LANGUAGE LEARNING MODE:\n\n') +
+      chalk.cyan('  /agent-vibes:language english\n') +
+      chalk.cyan('  /agent-vibes:target spanish\n') +
+      chalk.cyan('  /agent-vibes:learn\n\n') +
+      chalk.white('  Now while coding, you can also learn a second language\n') +
+      chalk.white('  such as Spanish, Italian, French, Mandarin, you name it! 🌍\n\n') +
+      chalk.white.bold('═══════════════════════════════════════════════════════════════\n\n') +
+      chalk.gray('📖 Full Release Notes: RELEASE_NOTES.md\n') +
+      chalk.gray('🌐 Website: https://agentvibes.org\n') +
+      chalk.gray('📦 Repository: https://github.com/paulpreibisch/AgentVibes\n\n') +
+      chalk.gray('Co-created by Paul Preibisch with Claude AI\n') +
+      chalk.gray('Copyright © 2025 Paul Preibisch | Apache-2.0 License'),
+      {
+        padding: 1,
+        margin: 1,
+        borderStyle: 'round',
+        borderColor: 'cyan',
       }
-      if (foundFirstRelease && line.trim()) {
-        if (line.startsWith('###')) {
-          console.log(chalk.gray(line));
-        } else if (line.startsWith('- ')) {
-          console.log(chalk.gray('   ' + line));
-        }
-        lineCount++;
-        if (lineCount >= maxLines) break;
-      }
-    }
-  } catch (error) {
-    // RELEASE_NOTES.md not available - skip release notes
-  }
+    )
+  );
 
   // Provider selection prompt
   let selectedProvider = 'piper';
@@ -669,7 +742,7 @@ async function install(options = {}) {
         chalk.cyan('👉 Setup Guide:\n') +
         chalk.cyan.bold('https://github.com/paulpreibisch/AgentVibes#-mcp-server-easiest-way-to-use-agentvibes\n\n') +
         chalk.gray('Quick Install:\n') +
-        chalk.white('   npx agentvibes install-mcp') + chalk.gray(' (Claude Desktop)\n') +
+        chalk.white('   npx agentvibes setup-mcp-for-claude-desktop') + chalk.gray(' (Claude Desktop)\n') +
         chalk.white('   npx -y agentvibes-mcp-server') + chalk.gray(' (Direct run)'),
         {
           padding: 1,
@@ -882,39 +955,71 @@ program
     console.log(chalk.gray(`   Update location: ${targetDir}/.claude/`));
     console.log(chalk.gray(`   Package version: ${version}`));
 
-    // Show latest release notes from RELEASE_NOTES.md
-    try {
-      const releaseNotesPath = path.join(__dirname, '..', 'RELEASE_NOTES.md');
-      const releaseNotes = await fs.readFile(releaseNotesPath, 'utf8');
-      const lines = releaseNotes.split('\n');
-
-      // Extract the first release section (v2.0.x format)
-      console.log(chalk.cyan('\n📰 Latest Release Notes:'));
-
-      let foundFirstRelease = false;
-      let lineCount = 0;
-      const maxLines = 8; // Show first 8 lines of latest release
-
-      for (const line of lines) {
-        if (line.startsWith('## 📦 v')) {
-          if (foundFirstRelease) break; // Stop at second release
-          foundFirstRelease = true;
-          console.log(chalk.white(line.replace('## 📦 ', '')));
-          continue;
+    // Show AI summary of latest release
+    console.log(
+      boxen(
+        chalk.white.bold('═══════════════════════════════════════════════════════════════\n') +
+        chalk.cyan.bold('  📦 AgentVibes v2.0.17 - Major Feature Release\n') +
+        chalk.white.bold('═══════════════════════════════════════════════════════════════\n\n') +
+        chalk.green.bold('🌟 BREAKTHROUGH FEATURES:\n\n') +
+        chalk.cyan('🌍 Language Learning Mode\n') +
+        chalk.gray('   • Learn a second language while coding!\n') +
+        chalk.gray('   • Spanish, Italian, French, Mandarin - you name it!\n') +
+        chalk.gray('   • Dual-language TTS (English → target language)\n') +
+        chalk.gray('   • Adjustable speech speed for comprehension\n\n') +
+        chalk.cyan('🎤 MCP Integration (Claude Desktop + Claude Code)\n') +
+        chalk.gray('   • Natural language control: "Switch to pirate personality"\n') +
+        chalk.gray('   • Works in Claude Desktop, Claude Code, and Warp\n') +
+        chalk.gray('   • No slash commands needed - just talk naturally!\n\n') +
+        chalk.cyan('⚡ Unified Speed Control\n') +
+        chalk.gray('   • 0.5x = Slower, 2x = Faster, 3x = Very Fast\n') +
+        chalk.gray('   • Works with BOTH ElevenLabs and Piper\n') +
+        chalk.gray('   • Automatic tongue twister demos\n\n') +
+        chalk.cyan('🔊 SSH Audio Optimization\n') +
+        chalk.gray('   • Crystal-clear audio over VS Code Remote SSH\n') +
+        chalk.gray('   • Auto-detects remote sessions\n\n') +
+        chalk.cyan('🎛️ Enhanced Multi-Provider Support\n') +
+        chalk.gray('   • Seamless ElevenLabs ↔ Piper switching\n') +
+        chalk.gray('   • Mixed provider support for learning mode\n\n') +
+        chalk.white('───────────────────────────────────────────────────────────────\n\n') +
+        chalk.yellow.bold('🐛 20+ BUG FIXES:\n') +
+        chalk.gray('   ✓ Fixed MP3 bitrate preservation (128kbps)\n') +
+        chalk.gray('   ✓ Fixed audio player hanging issues\n') +
+        chalk.gray('   ✓ Fixed voice/provider mismatches\n') +
+        chalk.gray('   ✓ Fixed Windows npx execution\n') +
+        chalk.gray('   ✓ Fixed JSON escaping in ElevenLabs API\n\n') +
+        chalk.white('───────────────────────────────────────────────────────────────\n\n') +
+        chalk.magenta.bold('📚 DOCUMENTATION OVERHAUL:\n') +
+        chalk.gray('   • 10 new documentation files\n') +
+        chalk.gray('   • Windows Setup Guide (NPX-based)\n') +
+        chalk.gray('   • README reduced 60% (1,285 → 502 lines)\n\n') +
+        chalk.white('───────────────────────────────────────────────────────────────\n\n') +
+        chalk.blue.bold('📊 BY THE NUMBERS:\n') +
+        chalk.gray('   • 75 commits since v2.0.16\n') +
+        chalk.gray('   • 72 files changed (+8,652 lines)\n') +
+        chalk.gray('   • 110 tests (79 new tests added)\n') +
+        chalk.gray('   • 5 major features, 20+ bug fixes\n\n') +
+        chalk.white.bold('═══════════════════════════════════════════════════════════════\n\n') +
+        chalk.green.bold('🚀 TRY LANGUAGE LEARNING MODE:\n\n') +
+        chalk.cyan('  /agent-vibes:language english\n') +
+        chalk.cyan('  /agent-vibes:target spanish\n') +
+        chalk.cyan('  /agent-vibes:learn\n\n') +
+        chalk.white('  Now while coding, you can also learn a second language\n') +
+        chalk.white('  such as Spanish, Italian, French, Mandarin, you name it! 🌍\n\n') +
+        chalk.white.bold('═══════════════════════════════════════════════════════════════\n\n') +
+        chalk.gray('📖 Full Release Notes: RELEASE_NOTES.md\n') +
+        chalk.gray('🌐 Website: https://agentvibes.org\n') +
+        chalk.gray('📦 Repository: https://github.com/paulpreibisch/AgentVibes\n\n') +
+        chalk.gray('Co-created by Paul Preibisch with Claude AI\n') +
+        chalk.gray('Copyright © 2025 Paul Preibisch | Apache-2.0 License'),
+        {
+          padding: 1,
+          margin: 1,
+          borderStyle: 'round',
+          borderColor: 'cyan',
         }
-        if (foundFirstRelease && line.trim()) {
-          if (line.startsWith('###')) {
-            console.log(chalk.gray(line));
-          } else if (line.startsWith('- ')) {
-            console.log(chalk.gray('   ' + line));
-          }
-          lineCount++;
-          if (lineCount >= maxLines) break;
-        }
-      }
-    } catch (error) {
-      // RELEASE_NOTES.md not available - skip release notes
-    }
+      )
+    );
 
     // Check if already installed
     const commandsDir = path.join(targetDir, '.claude', 'commands', 'agent-vibes');
@@ -1273,7 +1378,7 @@ program
           chalk.cyan('👉 Setup Guide:\n') +
           chalk.cyan.bold('https://github.com/paulpreibisch/AgentVibes#-mcp-server-easiest-way-to-use-agentvibes\n\n') +
           chalk.gray('Quick Install:\n') +
-          chalk.white('   npx agentvibes install-mcp') + chalk.gray(' (Claude Desktop)\n') +
+          chalk.white('   npx agentvibes setup-mcp-for-claude-desktop') + chalk.gray(' (Claude Desktop)\n') +
           chalk.white('   npx -y agentvibes-mcp-server') + chalk.gray(' (Direct run)'),
           {
             padding: 1,
@@ -1329,8 +1434,8 @@ program
   });
 
 program
-  .command('install-mcp')
-  .description('Install AgentVibes MCP server for Claude Desktop')
+  .command('setup-mcp-for-claude-desktop')
+  .description('Setup AgentVibes MCP server for Claude Desktop (Windows/Mac/Linux)')
   .action(async () => {
     await installMCP();
   });
