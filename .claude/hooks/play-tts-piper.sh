@@ -146,9 +146,9 @@ TEMP_FILE="$AUDIO_DIR/tts-$(date +%s).wav"
 
 # @function get_speech_rate
 # @intent Determine speech rate for Piper synthesis
-# @why Allow slower speech for language learning (default 2.0 for non-English)
-# @returns Speech rate value (default 1.0 for English, 2.0 for others)
-# @note Uses provider-agnostic file names with backward compatibility for legacy files
+# @why Convert user-facing speed (0.5=slower, 2.0=faster) to Piper length-scale (inverted)
+# @returns Piper length-scale value (inverted from user scale)
+# @note Piper uses length-scale where higher=slower, opposite of user expectation
 get_speech_rate() {
   local target_config=""
   local main_config=""
@@ -177,18 +177,23 @@ get_speech_rate() {
 
   # If this is a non-English voice and target config exists, use it
   if [[ "$CURRENT_LANGUAGE" != "english" ]] && [[ -n "$target_config" ]]; then
-    cat "$target_config" 2>/dev/null
+    local user_speed=$(cat "$target_config" 2>/dev/null)
+    # Convert user speed to Piper length-scale (invert)
+    # User: 0.5=slower, 1.0=normal, 2.0=faster
+    # Piper: 2.0=slower, 1.0=normal, 0.5=faster
+    # Formula: piper_length_scale = 1.0 / user_speed
+    echo "scale=2; 1.0 / $user_speed" | bc -l 2>/dev/null || echo "1.0"
     return
   fi
 
   # Otherwise use main config if available
   if [[ -n "$main_config" ]]; then
-    # Read only the last non-comment line (the actual number)
-    grep -v '^#' "$main_config" 2>/dev/null | grep -v '^$' | tail -1
+    local user_speed=$(grep -v '^#' "$main_config" 2>/dev/null | grep -v '^$' | tail -1)
+    echo "scale=2; 1.0 / $user_speed" | bc -l 2>/dev/null || echo "1.0"
     return
   fi
 
-  # Default: 2x slower for non-English (better for language learning)
+  # Default: 1.0 (normal) for English, 2.0 (slower) for learning
   if [[ "$CURRENT_LANGUAGE" != "english" ]]; then
     echo "2.0"
   else

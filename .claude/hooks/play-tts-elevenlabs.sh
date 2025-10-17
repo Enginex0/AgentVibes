@@ -179,9 +179,9 @@ else
 fi
 
 # @function get_speech_speed
-# @intent Read speed config and convert for ElevenLabs API
-# @why ElevenLabs uses speed multiplier (0.5=slower, 2.0=faster) opposite from Piper
-# @returns Speed value for ElevenLabs API (inverted from Piper's length-scale)
+# @intent Read speed config for ElevenLabs API
+# @why ElevenLabs uses speed multiplier (0.5=slower, 1.0=normal, 2.0=faster)
+# @returns Speed value for ElevenLabs API (matches our user-facing scale)
 get_speech_speed() {
   local config_dir=""
 
@@ -214,33 +214,29 @@ get_speech_speed() {
   # If this is a non-English voice and target config exists, use it
   if [[ "$CURRENT_LANGUAGE" != "english" ]]; then
     if [[ -f "$target_speed_file" ]]; then
-      local speed=$(cat "$target_speed_file" 2>/dev/null)
-      # Convert from Piper scale to ElevenLabs scale (invert)
-      # Piper: 0.5=faster, 2.0=slower
-      # ElevenLabs: 0.5=slower, 2.0=faster
-      # Formula: elevenlabs_speed = 2.0 / piper_length_scale
-      echo "scale=2; 2.0 / $speed" | bc -l 2>/dev/null || echo "1.0"
+      cat "$target_speed_file" 2>/dev/null || echo "1.0"
       return
     elif [[ -f "$legacy_target_speed_file" ]]; then
-      local speed=$(cat "$legacy_target_speed_file" 2>/dev/null)
-      echo "scale=2; 2.0 / $speed" | bc -l 2>/dev/null || echo "1.0"
+      cat "$legacy_target_speed_file" 2>/dev/null || echo "1.0"
       return
     fi
   fi
 
   # Otherwise use main config if available
   if [[ -f "$main_speed_file" ]]; then
-    local speed=$(grep -v '^#' "$main_speed_file" 2>/dev/null | grep -v '^$' | tail -1)
-    echo "scale=2; 2.0 / $speed" | bc -l 2>/dev/null || echo "1.0"
+    grep -v '^#' "$main_speed_file" 2>/dev/null | grep -v '^$' | tail -1 || echo "1.0"
     return
   elif [[ -f "$legacy_main_speed_file" ]]; then
-    local speed=$(grep -v '^#' "$legacy_main_speed_file" 2>/dev/null | grep -v '^$' | tail -1)
-    echo "scale=2; 2.0 / $speed" | bc -l 2>/dev/null || echo "1.0"
+    grep -v '^#' "$legacy_main_speed_file" 2>/dev/null | grep -v '^$' | tail -1 || echo "1.0"
     return
   fi
 
-  # Default: 1.0 (normal speed)
-  echo "1.0"
+  # Default: 1.0 (normal speed) for English, 0.5 (slower) for learning
+  if [[ "$CURRENT_LANGUAGE" != "english" ]]; then
+    echo "0.5"
+  else
+    echo "1.0"
+  fi
 }
 
 SPEECH_SPEED=$(get_speech_speed)

@@ -606,7 +606,7 @@ Examples:
                 "properties": {
                     "speed": {
                         "type": "string",
-                        "description": "Speed value: '0.5x' or 'fast' (2x faster), '1x' or 'normal' (normal speed), '2x' or 'slow' (2x slower), '3x' or 'slower' (3x slower)"
+                        "description": "Speed value: '0.5x' or 'slow/slower' (half speed, slower), '1x' or 'normal' (normal speed), '2x' or 'fast' (double speed, faster), '3x' or 'faster' (triple speed, very fast)"
                     },
                     "target": {
                         "type": "boolean",

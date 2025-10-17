@@ -38,11 +38,10 @@ LEGACY_MAIN_SPEED_FILE="$CONFIG_DIR/piper-speech-rate.txt"
 LEGACY_TARGET_SPEED_FILE="$CONFIG_DIR/piper-target-speech-rate.txt"
 
 # @function parse_speed_value
-# @intent Convert user-friendly speed notation to normalized speed value
-# @param $1 Speed string (e.g., "2x", "+2x", "-2x", "0.5x", "normal")
-# @returns Numeric speed value (works for both Piper length-scale and ElevenLabs speed)
-# @note For Piper: length-scale (0.5=faster, 2.0=slower)
-# @note For ElevenLabs: speed multiplier (0.5=slower, 2.0=faster) - will be converted in provider script
+# @intent Convert user-friendly speed notation to normalized speed multiplier
+# @param $1 Speed string (e.g., "2x", "0.5x", "normal")
+# @returns Numeric speed value (0.5=slower, 1.0=normal, 2.0=faster, 3.0=very fast)
+# @note This is the user-facing scale - provider scripts will convert as needed
 parse_speed_value() {
   local input="$1"
 
@@ -52,22 +51,23 @@ parse_speed_value() {
       echo "1.0"
       return
       ;;
-    fast|-2x|0.5x)
+    slow|slower|0.5x)
       echo "0.5"
       return
       ;;
-    slow|+2x|2x|2.0)
+    fast|2x|2.0)
       echo "2.0"
       return
       ;;
-    slower|+3x|3x|3.0)
+    faster|3x|3.0)
       echo "3.0"
       return
       ;;
   esac
 
-  # Strip leading '+' if present
+  # Strip leading '+' or '-' if present
   input="${input#+}"
+  input="${input#-}"
 
   # Strip trailing 'x' if present
   input="${input%x}"
@@ -134,22 +134,22 @@ set_speed() {
 
   case "$speed_value" in
     0.5)
-      echo "Effect: 2x faster (half duration)"
+      echo "Effect: Half speed (slower)"
       ;;
     1.0)
       echo "Effect: Normal speed"
       ;;
     2.0)
-      echo "Effect: 2x slower (great for language learning)"
+      echo "Effect: Double speed (faster)"
       ;;
     3.0)
-      echo "Effect: 3x slower (very slow, detailed learning)"
+      echo "Effect: Triple speed (very fast)"
       ;;
     *)
       if (( $(echo "$speed_value > 1.0" | bc -l) )); then
-        echo "Effect: Slower speech"
-      else
         echo "Effect: Faster speech"
+      else
+        echo "Effect: Slower speech"
       fi
       ;;
   esac
@@ -211,10 +211,11 @@ get_speed() {
     local target_speed=$(cat "$TARGET_SPEED_FILE" 2>/dev/null)
     echo "Target language: ${target_speed}x"
   else
-    echo "Target language: 2.0x (default, 2x slower for learning)"
+    echo "Target language: 0.5x (default, slower for learning)"
   fi
 
   echo ""
+  echo "Scale: 0.5x=slower, 1.0x=normal, 2.0x=faster, 3.0x=very fast"
   echo "Works with: Piper TTS and ElevenLabs"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
@@ -239,14 +240,15 @@ case "${1:-}" in
     echo "  /agent-vibes:set-speed get              Show current speeds"
     echo ""
     echo "Speed values:"
-    echo "  0.5x or -2x  = 2x faster"
-    echo "  1x or normal = Normal speed"
-    echo "  2x or +2x    = 2x slower (great for learning)"
-    echo "  3x or +3x    = 3x slower"
+    echo "  0.5x or slow/slower = Half speed (slower)"
+    echo "  1x or normal        = Normal speed"
+    echo "  2x or fast          = Double speed (faster)"
+    echo "  3x or faster        = Triple speed (very fast)"
     echo ""
     echo "Examples:"
-    echo "  /agent-vibes:set-speed target 2x"
-    echo "  /agent-vibes:set-speed 0.5x"
-    echo "  /agent-vibes:set-speed normal"
+    echo "  /agent-vibes:set-speed 2x        # Make voice faster"
+    echo "  /agent-vibes:set-speed 0.5x      # Make voice slower"
+    echo "  /agent-vibes:set-speed target 0.5x  # Slow down target language for learning"
+    echo "  /agent-vibes:set-speed normal    # Reset to normal"
     ;;
 esac
