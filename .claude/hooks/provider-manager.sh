@@ -101,7 +101,21 @@ set_active_provider() {
   # Write provider to file
   echo "$provider" > "$provider_file"
 
-  echo "✓ Active provider set to: $provider"
+  # Reset voice when switching providers to avoid incompatible voices
+  # (e.g., ElevenLabs "Demon Monster" doesn't exist in Piper)
+  local voice_file
+  if [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -d "$CLAUDE_PROJECT_DIR/.claude" ]]; then
+    voice_file="$CLAUDE_PROJECT_DIR/.claude/tts-voice.txt"
+  else
+    voice_file="$HOME/.claude/tts-voice.txt"
+  fi
+
+  # Remove voice file to force default voice for new provider
+  if [[ -f "$voice_file" ]]; then
+    rm -f "$voice_file"
+  fi
+
+  echo "✓ Active provider set to: $provider (voice reset to default)"
 }
 
 # @function list_providers
