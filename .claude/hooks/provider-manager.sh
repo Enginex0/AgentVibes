@@ -53,7 +53,7 @@ get_active_provider() {
   local provider_file
   provider_file=$(get_provider_config_path)
 
-  # Read provider from file, default to elevenlabs if not found
+  # Read provider from file, default to piper if not found
   if [[ -f "$provider_file" ]]; then
     local provider
     provider=$(cat "$provider_file" | tr -d '[:space:]')
@@ -63,8 +63,8 @@ get_active_provider() {
     fi
   fi
 
-  # Default to elevenlabs
-  echo "elevenlabs"
+  # Default to piper (free, offline)
+  echo "piper"
 }
 
 # @function set_active_provider
@@ -101,7 +101,21 @@ set_active_provider() {
   # Write provider to file
   echo "$provider" > "$provider_file"
 
-  echo "✓ Active provider set to: $provider"
+  # Reset voice when switching providers to avoid incompatible voices
+  # (e.g., ElevenLabs "Demon Monster" doesn't exist in Piper)
+  local voice_file
+  if [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -d "$CLAUDE_PROJECT_DIR/.claude" ]]; then
+    voice_file="$CLAUDE_PROJECT_DIR/.claude/tts-voice.txt"
+  else
+    voice_file="$HOME/.claude/tts-voice.txt"
+  fi
+
+  # Remove voice file to force default voice for new provider
+  if [[ -f "$voice_file" ]]; then
+    rm -f "$voice_file"
+  fi
+
+  echo "✓ Active provider set to: $provider (voice reset to default)"
 }
 
 # @function list_providers
@@ -194,3 +208,41 @@ get_provider_script_path() {
 # AI NOTE: This file provides the core abstraction layer for multi-provider TTS.
 # All provider state is managed through simple text files for simplicity and reliability.
 # Project-local configuration takes precedence over global to support per-project providers.
+
+# Command-line interface (when script is executed, not sourced)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  case "${1:-}" in
+    get)
+      get_active_provider
+      ;;
+    switch|set)
+      if [[ -z "${2:-}" ]]; then
+        echo "❌ Error: Provider name required"
+        echo "Usage: $0 switch <provider>"
+        exit 1
+      fi
+      set_active_provider "$2"
+      ;;
+    list)
+      list_providers
+      ;;
+    validate)
+      if [[ -z "${2:-}" ]]; then
+        echo "❌ Error: Provider name required"
+        echo "Usage: $0 validate <provider>"
+        exit 1
+      fi
+      validate_provider "$2"
+      ;;
+    *)
+      echo "Usage: $0 {get|switch|list|validate} [provider]"
+      echo ""
+      echo "Commands:"
+      echo "  get              - Show active provider"
+      echo "  switch <name>    - Switch to provider"
+      echo "  list             - List available providers"
+      echo "  validate <name>  - Check if provider exists"
+      exit 1
+      ;;
+  esac
+fi

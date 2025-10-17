@@ -82,9 +82,123 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 For detailed information about the remote audio setup, see:
 - [Remote Audio Setup Guide](../docs/remote-audio-setup.md)
 
+#### `fix-audio-tunnel.sh` (NEW - WSL or Remote Server)
+
+**The easiest way to fix audio tunnel issues!**
+
+Auto-detects environment and runs appropriate fixes for stale SSH processes, stopped socat bridges, and connection issues.
+
+**Requirements:**
+- Run from WSL (for complete fix) OR ubuntu-rdp (for local fix)
+- SSH access configured
+- sudo privileges for killing processes
+
+**Usage:**
+```bash
+# From WSL - runs complete fix
+./scripts/fix-audio-tunnel.sh
+
+# From ubuntu-rdp - runs local fix
+./scripts/fix-audio-tunnel.sh
+```
+
+**What it does (when run from WSL):**
+1. ✅ Kills stale SSH processes on ubuntu-rdp holding port 14713
+2. ✅ Restarts socat bridge on WSL if needed
+3. ✅ Kills local stale SSH tunnels
+4. ✅ Creates fresh SSH tunnel to ubuntu-rdp
+5. ✅ Tests audio connection
+6. ✅ Provides clear status and usage instructions
+
+**What it does (when run from ubuntu-rdp):**
+1. ✅ Kills local processes using port 14713
+2. ✅ Waits for tunnel to be re-established
+3. ✅ Tests audio connection
+4. ✅ Plays test tone through Windows speakers
+
+**When to use:**
+- Audio stopped working suddenly
+- Getting "Connection refused" errors
+- SSH shows "Warning: remote port forwarding failed"
+- speaker-test fails
+- AgentVibes TTS not playing through Windows speakers
+
+#### `check-audio-tunnel.sh` (Diagnostic)
+
+Checks audio tunnel status without making changes. Useful for verifying setup or diagnosing issues.
+
+**Usage:**
+```bash
+./scripts/check-audio-tunnel.sh
+```
+
 ## Troubleshooting
 
+### Quick Fix
+
+**If audio stopped working**, run this first:
+```bash
+# From WSL
+./scripts/fix-audio-tunnel.sh
+```
+
+This will automatically fix the most common issues:
+- Stale SSH processes blocking port 14713
+- Stopped socat bridge
+- Conflicting SSH tunnels
+
 ### Common Issues
+
+**Issue 1: "Warning: remote port forwarding failed for listen port 14713"**
+
+**Symptom:** SSH tunnel fails to establish
+**Cause:** Old SSH sessions left zombie processes holding port 14713
+**Fix:** `./scripts/fix-audio-tunnel.sh` (kills stale processes automatically)
+
+**Issue 2: "Connection refused" / "ALSA lib pulse.c: Unable to connect"**
+
+**Symptom:** Audio playback fails
+**Cause:** socat bridge on WSL stopped running
+**Fix:** `./scripts/fix-audio-tunnel.sh` (restarts socat automatically)
+
+**Issue 3: Audio works intermittently**
+
+**Symptom:** Audio plays sometimes but not always
+**Cause:** Multiple SSH sessions creating conflicting tunnels
+**Fix:** `./scripts/fix-audio-tunnel.sh` (kills all tunnels and creates one clean tunnel)
+
+### Manual Diagnostics
+
+If the automated fix doesn't work, try these manual checks:
+
+**Check socat bridge (WSL):**
+```bash
+wsl ss -tlnp | grep 14713
+# Expected: LISTEN 0 5 *:14713 *:* users:(("socat"...))
+```
+
+**Check SSH tunnel (ubuntu-rdp):**
+```bash
+ssh ubuntu-rdp 'netstat -tlnp | grep 14713'
+# Expected: tcp 0 0 127.0.0.1:14713 0.0.0.0:* LISTEN
+```
+
+**Find stale processes:**
+```bash
+ssh ubuntu-rdp 'sudo lsof -i :14713'
+# Should show only one sshd process
+```
+
+**Test audio:**
+```bash
+ssh ubuntu-rdp
+export PULSE_SERVER=tcp:localhost:14713
+speaker-test -t sine -f 1000 -l 1
+```
+
+**Detailed troubleshooting guide:** See [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for in-depth analysis of recent issues and their solutions.
+
+### Legacy Issues
 
 **Audio doesn't play:**
 - Ensure WSL is updated: `wsl --update`

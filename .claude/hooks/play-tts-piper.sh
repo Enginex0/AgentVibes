@@ -144,15 +144,74 @@ fi
 mkdir -p "$AUDIO_DIR"
 TEMP_FILE="$AUDIO_DIR/tts-$(date +%s).wav"
 
+# @function get_speech_rate
+# @intent Determine speech rate for Piper synthesis
+# @why Convert user-facing speed (0.5=slower, 2.0=faster) to Piper length-scale (inverted)
+# @returns Piper length-scale value (inverted from user scale)
+# @note Piper uses length-scale where higher=slower, opposite of user expectation
+get_speech_rate() {
+  local target_config=""
+  local main_config=""
+
+  # Check for target-specific config first (new and legacy paths)
+  if [[ -f "$SCRIPT_DIR/../config/tts-target-speech-rate.txt" ]]; then
+    target_config="$SCRIPT_DIR/../config/tts-target-speech-rate.txt"
+  elif [[ -f "$HOME/.claude/config/tts-target-speech-rate.txt" ]]; then
+    target_config="$HOME/.claude/config/tts-target-speech-rate.txt"
+  elif [[ -f "$SCRIPT_DIR/../config/piper-target-speech-rate.txt" ]]; then
+    target_config="$SCRIPT_DIR/../config/piper-target-speech-rate.txt"
+  elif [[ -f "$HOME/.claude/config/piper-target-speech-rate.txt" ]]; then
+    target_config="$HOME/.claude/config/piper-target-speech-rate.txt"
+  fi
+
+  # Check for main config (new and legacy paths)
+  if [[ -f "$SCRIPT_DIR/../config/tts-speech-rate.txt" ]]; then
+    main_config="$SCRIPT_DIR/../config/tts-speech-rate.txt"
+  elif [[ -f "$HOME/.claude/config/tts-speech-rate.txt" ]]; then
+    main_config="$HOME/.claude/config/tts-speech-rate.txt"
+  elif [[ -f "$SCRIPT_DIR/../config/piper-speech-rate.txt" ]]; then
+    main_config="$SCRIPT_DIR/../config/piper-speech-rate.txt"
+  elif [[ -f "$HOME/.claude/config/piper-speech-rate.txt" ]]; then
+    main_config="$HOME/.claude/config/piper-speech-rate.txt"
+  fi
+
+  # If this is a non-English voice and target config exists, use it
+  if [[ "$CURRENT_LANGUAGE" != "english" ]] && [[ -n "$target_config" ]]; then
+    local user_speed=$(cat "$target_config" 2>/dev/null)
+    # Convert user speed to Piper length-scale (invert)
+    # User: 0.5=slower, 1.0=normal, 2.0=faster
+    # Piper: 2.0=slower, 1.0=normal, 0.5=faster
+    # Formula: piper_length_scale = 1.0 / user_speed
+    echo "scale=2; 1.0 / $user_speed" | bc -l 2>/dev/null || echo "1.0"
+    return
+  fi
+
+  # Otherwise use main config if available
+  if [[ -n "$main_config" ]]; then
+    local user_speed=$(grep -v '^#' "$main_config" 2>/dev/null | grep -v '^$' | tail -1)
+    echo "scale=2; 1.0 / $user_speed" | bc -l 2>/dev/null || echo "1.0"
+    return
+  fi
+
+  # Default: 1.0 (normal) for English, 2.0 (slower) for learning
+  if [[ "$CURRENT_LANGUAGE" != "english" ]]; then
+    echo "2.0"
+  else
+    echo "1.0"
+  fi
+}
+
+SPEECH_RATE=$(get_speech_rate)
+
 # @function synthesize_with_piper
 # @intent Generate speech using Piper TTS
 # @why Provides free, offline TTS alternative
-# @param Uses globals: $TEXT, $VOICE_PATH
+# @param Uses globals: $TEXT, $VOICE_PATH, $SPEECH_RATE
 # @returns Creates WAV file at $TEMP_FILE
 # @exitcode 0=success, 4=synthesis error
 # @sideeffects Creates audio file
 # @edgecases Handles piper errors, invalid models
-echo "$TEXT" | piper --model "$VOICE_PATH" --output_file "$TEMP_FILE" 2>/dev/null
+echo "$TEXT" | piper --model "$VOICE_PATH" --length-scale "$SPEECH_RATE" --output_file "$TEMP_FILE" 2>/dev/null
 
 if [[ ! -f "$TEMP_FILE" ]] || [[ ! -s "$TEMP_FILE" ]]; then
   echo "❌ Failed to synthesize speech with Piper"
@@ -182,12 +241,41 @@ if command -v ffmpeg &> /dev/null; then
 fi
 
 # @function play_audio
-# @intent Play generated audio using available player
-# @why Support multiple audio players
-# @param Uses global: $TEMP_FILE
-# @sideeffects Plays audio in background
-# Play audio (WSL/Linux) in background
-(mpv "$TEMP_FILE" 2>/dev/null || aplay "$TEMP_FILE" 2>/dev/null || paplay "$TEMP_FILE" 2>/dev/null) &
+# @intent Play generated audio using available player with sequential playback
+# @why Support multiple audio players and prevent overlapping audio in learning mode
+# @param Uses global: $TEMP_FILE, $CURRENT_LANGUAGE
+# @sideeffects Plays audio with lock mechanism for sequential playback
+LOCK_FILE="/tmp/agentvibes-audio.lock"
+
+# Wait for previous audio to finish (max 30 seconds)
+for i in {1..60}; do
+  if [ ! -f "$LOCK_FILE" ]; then
+    break
+  fi
+  sleep 0.5
+done
+
+# Track last target language audio for replay command
+if [[ "$CURRENT_LANGUAGE" != "english" ]]; then
+  TARGET_AUDIO_FILE="${CLAUDE_PROJECT_DIR:-.}/.claude/last-target-audio.txt"
+  echo "$TEMP_FILE" > "$TARGET_AUDIO_FILE"
+fi
+
+# Create lock and play audio
+touch "$LOCK_FILE"
+
+# Get audio duration for proper lock timing
+DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$TEMP_FILE" 2>/dev/null)
+DURATION=${DURATION%.*}  # Round to integer
+DURATION=${DURATION:-1}   # Default to 1 second if detection fails
+
+# Play audio in background
+(mpv "$TEMP_FILE" || aplay "$TEMP_FILE" || paplay "$TEMP_FILE") >/dev/null 2>&1 &
+PLAYER_PID=$!
+
+# Wait for audio to finish, then release lock
+(sleep $DURATION; rm -f "$LOCK_FILE") &
+disown
 
 echo "🎵 Saved to: $TEMP_FILE"
 echo "🎤 Voice used: $VOICE_MODEL (Piper TTS)"

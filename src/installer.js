@@ -9,6 +9,7 @@ import figlet from 'figlet';
 import boxen from 'boxen';
 import ora from 'ora';
 import { fileURLToPath } from 'node:url';
+import { installMCP } from './commands/install-mcp.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -657,6 +658,28 @@ async function install(options = {}) {
     console.log(chalk.gray('   • /agent-vibes:switch <name> - Change your voice'));
     console.log(chalk.gray('   • /agent-vibes:personality <style> - Set personality\n'));
 
+    // Recommend MCP Server installation
+    console.log(
+      boxen(
+        chalk.cyan.bold('🎙️ Want Natural Language Control?\n\n') +
+        chalk.white.bold('AgentVibes MCP Server - Easiest Way to Use AgentVibes!\n\n') +
+        chalk.gray('Use Claude Desktop or Warp Terminal to control TTS with natural language:\n') +
+        chalk.gray('   "Switch to Aria voice" instead of /agent-vibes:switch "Aria"\n') +
+        chalk.gray('   "Set personality to flirty" instead of /agent-vibes:personality flirty\n\n') +
+        chalk.cyan('👉 Setup Guide:\n') +
+        chalk.cyan.bold('https://github.com/paulpreibisch/AgentVibes#-mcp-server-easiest-way-to-use-agentvibes\n\n') +
+        chalk.gray('Quick Install:\n') +
+        chalk.white('   npx agentvibes install-mcp') + chalk.gray(' (Claude Desktop)\n') +
+        chalk.white('   npx -y agentvibes-mcp-server') + chalk.gray(' (Direct run)'),
+        {
+          padding: 1,
+          margin: 1,
+          borderStyle: 'round',
+          borderColor: 'cyan',
+        }
+      )
+    );
+
     // Check for BMAD installation
     const bmadManifestPath = path.join(targetDir, '.bmad-core', 'install-manifest.yaml');
     let bmadDetected = false;
@@ -1239,6 +1262,28 @@ program
       console.log(chalk.gray('💡 Changes will take effect immediately!'));
       console.log(chalk.gray('   Try the new personalities with: /agent-vibes:personality list\n'));
 
+      // Recommend MCP Server installation
+      console.log(
+        boxen(
+          chalk.cyan.bold('🎙️ Want Natural Language Control?\n\n') +
+          chalk.white.bold('AgentVibes MCP Server - Easiest Way to Use AgentVibes!\n\n') +
+          chalk.gray('Use Claude Desktop or Warp Terminal to control TTS with natural language:\n') +
+          chalk.gray('   "Switch to Aria voice" instead of /agent-vibes:switch "Aria"\n') +
+          chalk.gray('   "Set personality to flirty" instead of /agent-vibes:personality flirty\n\n') +
+          chalk.cyan('👉 Setup Guide:\n') +
+          chalk.cyan.bold('https://github.com/paulpreibisch/AgentVibes#-mcp-server-easiest-way-to-use-agentvibes\n\n') +
+          chalk.gray('Quick Install:\n') +
+          chalk.white('   npx agentvibes install-mcp') + chalk.gray(' (Claude Desktop)\n') +
+          chalk.white('   npx -y agentvibes-mcp-server') + chalk.gray(' (Direct run)'),
+          {
+            padding: 1,
+            margin: 1,
+            borderStyle: 'round',
+            borderColor: 'cyan',
+          }
+        )
+      );
+
     } catch (error) {
       spinner.fail('Update failed!');
       console.error(chalk.red('\n❌ Error:'), error.message);
@@ -1280,6 +1325,31 @@ program
     } else {
       console.log(chalk.yellow('\n⚠️  ElevenLabs API key not found'));
       console.log(chalk.gray('   Set: export ELEVENLABS_API_KEY="your-key"'));
+    }
+  });
+
+program
+  .command('install-mcp')
+  .description('Install AgentVibes MCP server for Claude Desktop')
+  .action(async () => {
+    await installMCP();
+  });
+
+program
+  .command('agentvibes-mcp-server')
+  .description('Start AgentVibes MCP server')
+  .action(async () => {
+    // Run the bash wrapper script
+    const mcpServerScript = path.join(__dirname, '..', 'bin', 'mcp-server');
+
+    try {
+      const { execSync } = await import('node:child_process');
+      execSync(`bash "${mcpServerScript}"`, {
+        stdio: 'inherit',
+        env: process.env
+      });
+    } catch (error) {
+      process.exit(error.status || 1);
     }
   });
 

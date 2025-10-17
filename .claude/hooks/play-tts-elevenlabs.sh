@@ -178,10 +178,118 @@ else
   MODEL_ID="eleven_multilingual_v2"
 fi
 
+# @function get_speech_speed
+# @intent Read speed config and map to ElevenLabs API range (0.7-1.2)
+# @why ElevenLabs only supports 0.7 (slower) to 1.2 (faster), must map user scale
+# @returns Speed value for ElevenLabs API (clamped to 0.7-1.2)
+get_speech_speed() {
+  local config_dir=""
+
+  # Determine config directory
+  if [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -d "$CLAUDE_PROJECT_DIR/.claude" ]]; then
+    config_dir="$CLAUDE_PROJECT_DIR/.claude/config"
+  else
+    # Try to find .claude in current path
+    local current_dir="$PWD"
+    while [[ "$current_dir" != "/" ]]; do
+      if [[ -d "$current_dir/.claude" ]]; then
+        config_dir="$current_dir/.claude/config"
+        break
+      fi
+      current_dir=$(dirname "$current_dir")
+    done
+    # Fallback to global
+    if [[ -z "$config_dir" ]]; then
+      config_dir="$HOME/.claude/config"
+    fi
+  fi
+
+  local main_speed_file="$config_dir/tts-speech-rate.txt"
+  local target_speed_file="$config_dir/tts-target-speech-rate.txt"
+
+  # Legacy file paths for backward compatibility
+  local legacy_main_speed_file="$config_dir/piper-speech-rate.txt"
+  local legacy_target_speed_file="$config_dir/piper-target-speech-rate.txt"
+
+  local user_speed="1.0"
+
+  # If this is a non-English voice and target config exists, use it
+  if [[ "$CURRENT_LANGUAGE" != "english" ]]; then
+    if [[ -f "$target_speed_file" ]]; then
+      user_speed=$(cat "$target_speed_file" 2>/dev/null || echo "1.0")
+    elif [[ -f "$legacy_target_speed_file" ]]; then
+      user_speed=$(cat "$legacy_target_speed_file" 2>/dev/null || echo "1.0")
+    else
+      user_speed="0.5"  # Default slower for learning
+    fi
+  else
+    # Otherwise use main config if available
+    if [[ -f "$main_speed_file" ]]; then
+      user_speed=$(grep -v '^#' "$main_speed_file" 2>/dev/null | grep -v '^$' | tail -1 || echo "1.0")
+    elif [[ -f "$legacy_main_speed_file" ]]; then
+      user_speed=$(grep -v '^#' "$legacy_main_speed_file" 2>/dev/null | grep -v '^$' | tail -1 || echo "1.0")
+    fi
+  fi
+
+  # Map user scale (0.5=slower, 1.0=normal, 2.0=faster, 3.0=very fast)
+  # to ElevenLabs range (0.7=slower, 1.0=normal, 1.2=faster)
+  # Formula: elevenlabs_speed = 0.7 + (user_speed - 0.5) * 0.2
+  # This maps: 0.5→0.7, 1.0→0.8, 2.0→1.0, 3.0→1.2
+  # Actually, let's use a better mapping:
+  # 0.5x → 0.7 (slowest ElevenLabs)
+  # 1.0x → 1.0 (normal)
+  # 2.0x → 1.15
+  # 3.0x → 1.2 (fastest ElevenLabs)
+
+  if command -v bc &> /dev/null; then
+    local eleven_speed
+    if (( $(echo "$user_speed <= 0.5" | bc -l) )); then
+      eleven_speed="0.7"
+    elif (( $(echo "$user_speed >= 3.0" | bc -l) )); then
+      eleven_speed="1.2"
+    elif (( $(echo "$user_speed <= 1.0" | bc -l) )); then
+      # Map 0.5-1.0 to 0.7-1.0
+      eleven_speed=$(echo "scale=2; 0.7 + ($user_speed - 0.5) * 0.6" | bc -l)
+    else
+      # Map 1.0-3.0 to 1.0-1.2
+      eleven_speed=$(echo "scale=2; 1.0 + ($user_speed - 1.0) * 0.1" | bc -l)
+    fi
+    echo "$eleven_speed"
+  else
+    # Fallback without bc: just clamp to safe values
+    if (( $(awk 'BEGIN {print ("'$user_speed'" <= 0.5)}') )); then
+      echo "0.7"
+    elif (( $(awk 'BEGIN {print ("'$user_speed'" >= 2.0)}') )); then
+      echo "1.2"
+    else
+      echo "1.0"
+    fi
+  fi
+}
+
+SPEECH_SPEED=$(get_speech_speed)
+
+# Build JSON payload with jq for proper escaping
+PAYLOAD=$(jq -n \
+  --arg text "$TEXT" \
+  --arg model "$MODEL_ID" \
+  --arg lang "$LANGUAGE_CODE" \
+  --argjson speed "$SPEECH_SPEED" \
+  '{
+    text: $text,
+    model_id: $model,
+    language_code: $lang,
+    voice_settings: {
+      stability: 0.5,
+      similarity_boost: 0.75,
+      speed: $speed
+    }
+  }')
+
 curl -s -X POST "https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}" \
   -H "xi-api-key: ${API_KEY}" \
   -H "Content-Type: application/json" \
-  -d "{\"text\":\"${TEXT}\",\"model_id\":\"${MODEL_ID}\",\"language_code\":\"${LANGUAGE_CODE}\",\"voice_settings\":{\"stability\":0.5,\"similarity_boost\":0.75}}" \
+  -d "$PAYLOAD" \
   -o "${TEMP_FILE}"
 
 # @function add_silence_padding
@@ -197,9 +305,10 @@ if [ -f "${TEMP_FILE}" ]; then
   if command -v ffmpeg &> /dev/null; then
     PADDED_FILE="$AUDIO_DIR/tts-padded-$(date +%s).mp3"
     # Add 200ms of silence at the beginning to prevent static
-    ffmpeg -f lavfi -i anullsrc=r=44100:cl=stereo:d=0.2 -i "${TEMP_FILE}" \
+    # Note: ElevenLabs returns mono audio, so we use mono silence
+    ffmpeg -f lavfi -i anullsrc=r=44100:cl=mono:d=0.2 -i "${TEMP_FILE}" \
       -filter_complex "[0:a][1:a]concat=n=2:v=0:a=1[out]" \
-      -map "[out]" -y "${PADDED_FILE}" 2>/dev/null
+      -map "[out]" -c:a libmp3lame -b:a 128k -y "${PADDED_FILE}" 2>/dev/null
 
     if [ -f "${PADDED_FILE}" ]; then
       # Use padded file and clean up original
@@ -210,13 +319,52 @@ if [ -f "${TEMP_FILE}" ]; then
   fi
 
   # @function play_audio
-  # @intent Play generated audio file using available player
-  # @why Support multiple audio players (paplay, aplay, mpg123)
-  # @param Uses global: $TEMP_FILE
-  # @sideeffects Plays audio in background
+  # @intent Play generated audio file using available player with sequential playback
+  # @why Support multiple audio players and prevent overlapping audio in learning mode
+  # @param Uses global: $TEMP_FILE, $CURRENT_LANGUAGE
+  # @sideeffects Plays audio with lock mechanism for sequential playback
   # @edgecases Falls through players until one works
-  # Play audio (WSL/Linux) in background to avoid blocking
-  (paplay "${TEMP_FILE}" 2>/dev/null || aplay "${TEMP_FILE}" 2>/dev/null || mpg123 "${TEMP_FILE}" 2>/dev/null) &
+  LOCK_FILE="/tmp/agentvibes-audio.lock"
+
+  # Wait for previous audio to finish (max 30 seconds)
+  for i in {1..60}; do
+    if [ ! -f "$LOCK_FILE" ]; then
+      break
+    fi
+    sleep 0.5
+  done
+
+  # Track last target language audio for replay command
+  if [[ "$CURRENT_LANGUAGE" != "english" ]]; then
+    TARGET_AUDIO_FILE="${CLAUDE_PROJECT_DIR:-.}/.claude/last-target-audio.txt"
+    echo "${TEMP_FILE}" > "$TARGET_AUDIO_FILE"
+  fi
+
+  # Create lock and play audio
+  touch "$LOCK_FILE"
+
+  # Get audio duration for proper lock timing
+  DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${TEMP_FILE}" 2>/dev/null)
+  DURATION=${DURATION%.*}  # Round to integer
+  DURATION=${DURATION:-1}   # Default to 1 second if detection fails
+
+  # Convert to 48kHz stereo WAV for better SSH tunnel compatibility
+  # ElevenLabs returns 44.1kHz mono MP3, which causes static over SSH audio tunnels
+  # Converting to 48kHz stereo (Windows/PulseAudio native format) eliminates the static
+  if [[ -n "$SSH_CONNECTION" ]] || [[ -n "$SSH_CLIENT" ]] || [[ -n "$VSCODE_IPC_HOOK_CLI" ]]; then
+    CONVERTED_FILE="${TEMP_FILE%.mp3}.wav"
+    if ffmpeg -i "${TEMP_FILE}" -ar 48000 -ac 2 "${CONVERTED_FILE}" -y 2>/dev/null; then
+      TEMP_FILE="${CONVERTED_FILE}"
+    fi
+  fi
+
+  # Play audio (WSL/Linux) in background to avoid blocking, fully detached
+  (paplay "${TEMP_FILE}" || aplay "${TEMP_FILE}" || mpg123 "${TEMP_FILE}") >/dev/null 2>&1 &
+  PLAYER_PID=$!
+
+  # Wait for audio to finish, then release lock
+  (sleep $DURATION; rm -f "$LOCK_FILE") &
+  disown
 
   # Keep temp files for later review - cleaned up weekly by cron
   echo "🎵 Saved to: ${TEMP_FILE}"

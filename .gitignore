@@ -34,3 +34,6 @@ agentvibes.org/
 
 # LinkedIn articles (personal drafts)
 linkedin/
+
+# Scripts folder - user-specific config
+scripts/audio-tunnel.config

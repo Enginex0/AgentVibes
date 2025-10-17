@@ -80,10 +80,22 @@ provider_list() {
 # @intent Switch to a different TTS provider
 provider_switch() {
   local new_provider="$1"
+  local force_mode=false
+
+  # Check for --force or --yes flag
+  if [[ "$2" == "--force" ]] || [[ "$2" == "--yes" ]] || [[ "$2" == "-y" ]]; then
+    force_mode=true
+  fi
+
+  # Auto-enable force mode if running non-interactively (e.g., from MCP)
+  # Check multiple conditions for MCP/non-interactive context
+  if [[ ! -t 0 ]] || [[ -n "$CLAUDE_PROJECT_DIR" ]] || [[ -n "$MCP_SERVER" ]]; then
+    force_mode=true
+  fi
 
   if [[ -z "$new_provider" ]]; then
     echo "❌ Error: Provider name required"
-    echo "Usage: /agent-vibes:provider switch <provider>"
+    echo "Usage: /agent-vibes:provider switch <provider> [--force]"
     echo "Available: elevenlabs, piper"
     return 1
   fi
@@ -145,49 +157,100 @@ provider_switch() {
       echo "  2. Switch language to English"
       echo "  3. Cancel provider switch"
       echo ""
-      read -p "Choose option [1-3]: " -n 1 -r
-      echo
 
-      case $REPLY in
-        1)
-          echo "⏩ Continuing with fallback to English..."
-          ;;
-        2)
-          echo "🔄 Switching language to English..."
-          "$SCRIPT_DIR/language-manager.sh" set english
-          ;;
-        3)
-          echo "❌ Provider switch cancelled"
-          return 1
-          ;;
-        *)
-          echo "❌ Invalid option, cancelling"
-          return 1
-          ;;
-      esac
+      # Skip prompt in force mode
+      if [[ "$force_mode" == true ]]; then
+        echo "⏩ Force mode: Continuing with fallback to English..."
+      else
+        read -p "Choose option [1-3]: " -n 1 -r
+        echo
+
+        case $REPLY in
+          1)
+            echo "⏩ Continuing with fallback to English..."
+            ;;
+          2)
+            echo "🔄 Switching language to English..."
+            "$SCRIPT_DIR/language-manager.sh" set english
+            ;;
+          3)
+            echo "❌ Provider switch cancelled"
+            return 1
+            ;;
+          *)
+            echo "❌ Invalid option, cancelling"
+            return 1
+            ;;
+        esac
+      fi
     fi
   fi
 
-  # Confirm switch
-  echo ""
-  echo "⚠️  Switch to $(echo $new_provider | tr '[:lower:]' '[:upper:]')?"
-  echo ""
-  echo "Current: $current_provider"
-  echo "New:     $new_provider"
-  if [[ "$current_language" != "english" ]]; then
-    echo "Language: $current_language"
-  fi
-  echo ""
-  read -p "Continue? [y/N]: " -n 1 -r
-  echo
+  # Confirm switch (skip in force mode)
+  if [[ "$force_mode" != true ]]; then
+    echo ""
+    echo "⚠️  Switch to $(echo $new_provider | tr '[:lower:]' '[:upper:]')?"
+    echo ""
+    echo "Current: $current_provider"
+    echo "New:     $new_provider"
+    if [[ "$current_language" != "english" ]]; then
+      echo "Language: $current_language"
+    fi
+    echo ""
+    read -p "Continue? [y/N]: " -n 1 -r
+    echo
 
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "❌ Switch cancelled"
-    return 1
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      echo "❌ Switch cancelled"
+      return 1
+    fi
+  else
+    echo "⏩ Force mode: Switching to $new_provider..."
   fi
 
   # Perform switch
   set_active_provider "$new_provider"
+
+  # Update target voice if language learning mode is active
+  local target_lang_file=""
+  local target_voice_file=""
+
+  # Check project-local first, then global
+  if [[ -d "$SCRIPT_DIR/../.." ]]; then
+    local project_dir="$SCRIPT_DIR/../.."
+    if [[ -f "$project_dir/.claude/tts-target-language.txt" ]]; then
+      target_lang_file="$project_dir/.claude/tts-target-language.txt"
+      target_voice_file="$project_dir/.claude/tts-target-voice.txt"
+    fi
+  fi
+
+  # Fallback to global
+  if [[ -z "$target_lang_file" ]]; then
+    if [[ -f "$HOME/.claude/tts-target-language.txt" ]]; then
+      target_lang_file="$HOME/.claude/tts-target-language.txt"
+      target_voice_file="$HOME/.claude/tts-target-voice.txt"
+    fi
+  fi
+
+  # If target language is set, update voice for new provider
+  if [[ -n "$target_lang_file" ]] && [[ -f "$target_lang_file" ]]; then
+    local target_lang
+    target_lang=$(cat "$target_lang_file")
+
+    if [[ -n "$target_lang" ]]; then
+      # Get the recommended voice for this language with new provider
+      local new_target_voice
+      new_target_voice=$(get_voice_for_language "$target_lang" "$new_provider")
+
+      if [[ -n "$new_target_voice" ]]; then
+        echo "$new_target_voice" > "$target_voice_file"
+        echo ""
+        echo "🔄 Updated target language voice:"
+        echo "   Language: $target_lang"
+        echo "   Voice: $new_target_voice (for $new_provider)"
+      fi
+    fi
+  fi
 
   # Test new provider
   echo ""
@@ -421,7 +484,7 @@ case "$COMMAND" in
     provider_list
     ;;
   switch)
-    provider_switch "$2"
+    provider_switch "$2" "$3"
     ;;
   info)
     provider_info "$2"
