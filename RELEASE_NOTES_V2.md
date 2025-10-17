@@ -3,6 +3,125 @@
 
 ---
 
+## 🎉 What's New in v2.0.17-beta
+
+### 🔊 Automatic SSH Audio Optimization
+
+**The biggest remote audio improvement ever!** AgentVibes now automatically detects and optimizes audio for SSH sessions.
+
+#### **The Problem (Solved!):**
+When using AgentVibes over SSH (VS Code Remote SSH, regular SSH, cloud dev environments), users experienced:
+- 🔇 Static and clicking sounds instead of clear audio
+- 😫 Frustrating audio quality issues
+- 🛠️ Complex manual audio tunnel setup
+
+#### **The Solution:**
+AgentVibes now **auto-detects SSH sessions** and **converts audio format** for perfect playback!
+
+**How it works:**
+1. **Auto-detects** SSH environments via environment variables:
+   - `SSH_CONNECTION` - Regular SSH sessions
+   - `SSH_CLIENT` - SSH client connections
+   - `VSCODE_IPC_HOOK_CLI` - VS Code Remote SSH
+2. **Auto-converts** audio from 44.1kHz mono MP3 to 48kHz stereo WAV
+3. **Perfect playback** through SSH audio tunnels with zero configuration
+
+**Supported scenarios:**
+- 🖥️ **VS Code Remote SSH** - Code locally, run TTS on remote server
+- 🔐 **Regular SSH** - Standard SSH with audio tunneling
+- ☁️ **Cloud Dev Environments** - AWS, Azure, GCP instances
+- 🐳 **Docker/Container** - Containerized dev environments
+
+**Benefits:**
+- ✅ **Zero configuration** - Works automatically
+- ✅ **Crystal clear audio** - No more static or clicking
+- ✅ **Universal compatibility** - Works with all SSH audio tunnel setups
+- ✅ **Backwards compatible** - Local audio still works perfectly
+
+**Technical details:**
+```bash
+# Detection code (play-tts-elevenlabs.sh:351-359)
+if [[ -n "$SSH_CONNECTION" ]] || [[ -n "$SSH_CLIENT" ]] || [[ -n "$VSCODE_IPC_HOOK_CLI" ]]; then
+  # Convert to 48kHz stereo WAV for SSH tunnel compatibility
+  ffmpeg -i input.mp3 -ar 48000 -ac 2 output.wav
+fi
+```
+
+---
+
+### 🎚️ Unified Speech Speed Control
+
+**Single command to control speech rate across both ElevenLabs and Piper TTS!**
+
+#### **New Speed Commands:**
+```bash
+# Set speed for all voices
+/agent-vibes:set-speed 2x          # 2x slower (great for learning)
+/agent-vibes:set-speed 0.5x        # 2x faster (for quick listening)
+/agent-vibes:set-speed normal      # Reset to normal speed
+
+# Set speed for target language only (learning mode)
+/agent-vibes:set-speed target 2x   # Slow down target language
+
+# Check current speed
+/agent-vibes:set-speed get
+```
+
+#### **Features:**
+- ✅ **Unified control** - Works with both ElevenLabs and Piper
+- ✅ **Intuitive syntax** - `2x` = 2x slower, `0.5x` = 2x faster
+- ✅ **Learning mode support** - Separate speeds for main and target languages
+- ✅ **Tongue twister demos** - Automatic demo after speed changes
+
+#### **Range:**
+- **Piper TTS:** 0.5x to 3x speed (0.5x = 2x faster, 3x = 3x slower)
+- **ElevenLabs:** 0.25x to 4x speed (0.25x = 4x faster, 4x = 4x slower)
+
+---
+
+### 🎙️ Enhanced MCP Integration
+
+**Smarter project-specific settings and improved provider management!**
+
+#### **Smart Context Detection:**
+AgentVibes MCP now intelligently saves settings based on context:
+- **Warp Terminal** → Global `~/.claude/` (terminal-wide)
+- **Claude Code** → Project `.claude/` (per-project)
+- **Claude Desktop** → Project `.claude/` (per-project)
+
+#### **Improved Provider Switching:**
+- ✅ **Auto-confirmation** - Speaks confirmation after provider switch
+- ✅ **Voice reset** - Resets to default voice when switching providers
+- ✅ **Non-interactive support** - Works seamlessly via MCP and slash commands
+- ✅ **Better detection** - Enhanced `CLAUDE_PROJECT_DIR` check
+
+#### **Auto-Install System:**
+- ✅ **Automatic dependencies** - Python packages install automatically
+- ✅ **NPX wrapper** - Easy Claude Desktop setup with `npx`
+- ✅ **Voice download** - Piper voices download on first use
+- ✅ **Windows support** - Setup guide for Windows/WSL users
+
+---
+
+### 🎤 Audio Quality Improvements
+
+#### **Bitrate Preservation:**
+- ✅ Fixed 128kbps bitrate during audio padding
+- ✅ Eliminates static noise from format conversion
+- ✅ Better quality for ElevenLabs voice previews
+
+#### **Non-Blocking Playback:**
+- ✅ TTS scripts no longer hang
+- ✅ Fully detached audio players
+- ✅ Faster response times
+
+#### **Sequential Playback:**
+- ✅ Language learning mode plays audio in sequence
+- ✅ Main language first, then target language
+- ✅ Proper waiting between audio segments
+
+---
+
 ## 🚀 Major Features
 
 ### 🎭 Multi-Provider TTS System
@@ -525,8 +644,10 @@ sarcastic, flirty, pirate, grandpa, dry-humor, angry, robot, zen, professional, 
 
 ## 🐛 Bug Fixes
 
-### v2.0.17-beta Series (Language Learning Mode):
+### v2.0.17-beta Series (SSH Audio + Learning Mode):
+- **Fixed SSH audio tunnel static** - Auto-converts 44.1kHz mono MP3 to 48kHz stereo WAV for remote sessions
 - **Fixed ElevenLabs audio static** - Added MP3 codec (`-c:a libmp3lame`) to prevent WAV format issues
+- **Fixed audio bitrate** - Preserves 128kbps during padding to eliminate static noise
 - **Fixed MCP provider switching** - Enhanced non-interactive detection with `CLAUDE_PROJECT_DIR` check
 - **Fixed target voice sync** - Auto-updates target voice when switching providers
 - **Fixed voice/provider mismatches** - Output style now lets system choose voice based on active provider
@@ -534,6 +655,7 @@ sarcastic, flirty, pirate, grandpa, dry-humor, angry, robot, zen, professional, 
 - **Fixed Piper speech rate** - Properly reads numeric values from config files (strips comments)
 - **Fixed interactive prompts in MCP** - Provider switch commands now work seamlessly via slash commands
 - **Fixed Spanish voice download** - Voice models now download automatically with user consent
+- **Fixed audio playback hanging** - TTS scripts now fully detach audio players (non-blocking)
 
 ### v2.0.0 Core Fixes:
 - Fixed symlink support for shared hooks

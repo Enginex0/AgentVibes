@@ -1,6 +1,6 @@
 # 🎤 AgentVibes
 
-> **Bring your Claude AI sessions to life with voice!**
+> **Finally! Your agents can talk back!**
 >
 > 🌐 **[agentvibes.org](https://agentvibes.org)**
 >
@@ -11,7 +11,7 @@
 [![Publish](https://github.com/paulpreibisch/AgentVibes/actions/workflows/publish.yml/badge.svg)](https://github.com/paulpreibisch/AgentVibes/actions/workflows/publish.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Author**: Paul Preibisch ([@997Fire](https://x.com/997Fire)) | **Version**: v2.0.16
+**Author**: Paul Preibisch ([@997Fire](https://x.com/997Fire)) | **Version**: v2.0.17-beta
 
 ---
 
@@ -24,6 +24,8 @@ Whether you're coding in Claude Code, chatting in Claude Desktop, or using Warp 
 ### 🎯 Key Features
 
 - 🎙️ **AgentVibes MCP** - **NEW!** Natural language control for Claude Code, Claude Desktop & Warp (no slash commands!)
+- 📚 **Language Learning Mode** - **NEW!** Learn a second language while you program (e.g., Learn Spanish as you code!)
+- 🔊 **SSH Audio Optimization** - **NEW!** Auto-detects remote sessions and eliminates static (VS Code Remote SSH, cloud dev)
 - 🎭 **Multi-Provider Support** - Choose ElevenLabs (150+ premium voices) or Piper TTS (50+ free voices)
 - 🌍 **30+ Languages** - Multilingual support with native voice quality
 - 🎙️ **27+ Professional AI Voices** - Character voices, accents, and unique personalities
@@ -40,49 +42,56 @@ Whether you're coding in Claude Code, chatting in Claude Desktop, or using Warp 
 ## 📑 Table of Contents
 
 ### Getting Started
-- [🚀 Quick Start](#-quick-start) - Install in 3 steps
-- [✨ What is AgentVibes?](#-what-is-agentvibes) - Overview & key features
-- [🎙️ NEW: AgentVibes MCP](#️-agentvibes-mcp-easiest-way-to-use-agentvibes) - **Easiest way** - Natural language commands
-- [📰 Latest Release](#-latest-release) - What's new
+- [🚀 Quick Start](#claude-code-quick-start) - Install in 3 steps
+- [✨ What is AgentVibes?](#what-is-agentvibes) - Overview & key features
+- [📰 Latest Release](#latest-release) - What's new
+
+### AgentVibes MCP (Natural Language Control)
+- [🎙️ AgentVibes MCP Overview](#agentvibes-mcp-easiest-way-to-use-agentvibes) - **Easiest way** - Natural language commands
+  - [For Claude Desktop](#for-claude-desktop) - Windows/WSL setup, Python requirements
+  - [For Warp Terminal](#for-warp-terminal) - Warp configuration
+  - [For Claude Code](#for-claude-code) - Project-specific setup
+- [📦 What Gets Installed](#where-settings-are-saved) - MCP dependencies & settings
 
 ### Core Features
-- [🎤 Commands Reference](#-commands-reference) - All available commands
-- [🎭 Personalities vs Sentiments](#-personalities-vs-sentiments) - Two systems explained
-- [🗣️ Voice Library](#️-voice-library) - 27+ professional voices
+- [🎤 Commands Reference](#commands-reference) - All available commands
+- [📚 Language Learning Mode](#language-learning-mode) - **NEW!** Learn Spanish while you program
+- [🎭 Personalities vs Sentiments](#personalities-vs-sentiments) - Two systems explained
+- [🗣️ Voice Library](#voice-library) - 27+ professional voices
 - [🌍 Multilingual Support](#change-language) - Speak in 30+ languages
-- [🔌 BMAD Plugin](#-bmad-plugin) - Auto voice switching for BMAD agents
+- [🔌 BMAD Plugin](#bmad-plugin) - Auto voice switching for BMAD agents
 
 ### Advanced Topics
-- [📦 Installation Structure](#-installation-structure) - What gets installed
-- [💡 Usage Examples](#-usage-examples) - Common workflows
-- [🔧 Advanced Features](#-advanced-features) - Custom voices & personalities
-- [🔊 Remote Audio Setup](#-remote-audio-setup) - Play TTS from remote servers
-- [💰 Pricing & Usage](#-pricing--usage) - ElevenLabs costs & monitoring
-- [❓ Troubleshooting](#-troubleshooting) - Common issues & fixes
+- [📦 Installation Structure](#installation-structure) - What gets installed
+- [💡 Usage Examples](#usage-examples) - Common workflows
+- [🔧 Advanced Features](#advanced-features) - Custom voices & personalities
+- [🔊 Remote Audio Setup](#remote-audio-setup) - Play TTS from remote servers
+- [💰 Pricing & Usage](#pricing--usage) - ElevenLabs costs & monitoring
+- [❓ Troubleshooting](#troubleshooting) - Common issues & fixes
 
 ### Additional Resources
-- [🔗 Useful Links](#-useful-links) - Voice typing & AI tools
-- [🔄 Updating](#-updating) - Keep AgentVibes current
-- [🙏 Credits](#-credits) - Acknowledgments
-- [🤝 Contributing](#-contributing) - Show support
+- [🔗 Useful Links](#useful-links) - Voice typing & AI tools
+- [🔄 Updating](#updating) - Keep AgentVibes current
+- [🙏 Credits](#credits) - Acknowledgments
+- [🤝 Contributing](#contributing) - Show support
 
 ---
 
 ## 📰 Latest Release
 
-**[v2.0.16 - Release Notes](https://github.com/paulpreibisch/AgentVibes/releases/tag/v2.0.16)** 🎉
+**[v2.0.17-beta - Release Notes](https://github.com/paulpreibisch/AgentVibes/releases/tag/v2.0.17-beta)** 🎉
 
-**NEW: AgentVibes MCP!** Control AgentVibes with natural language in Claude Code, Claude Desktop, and Warp Terminal - no need to remember slash commands!
+**NEW: Automatic SSH Audio Optimization!** AgentVibes now automatically detects remote SSH sessions and optimizes audio for perfect playback - no more static or clicking sounds!
 
-Expanded voice library (27+ voices), **Multi-provider TTS support** (ElevenLabs + Piper TTS), **30+ languages**, **AgentVibes MCP integration** for Claude Code/Desktop/Warp, advanced sentiment system, enhanced BMAD integration, and comprehensive multilingual support.
+Plus: **Language Learning Mode** (e.g., Learn Spanish while you program!) with dual-language TTS, **Unified Speech Speed Control**, and **Enhanced MCP Integration** with smart project-specific settings.
 
 **Key highlights:**
-- 🎙️ **AgentVibes MCP** - Natural language control for Claude Code, Claude Desktop & Warp Terminal
-- 🎭 **Multi-Provider Support** - Switch between ElevenLabs (150+ voices) and Piper TTS (50+ free voices)
-- 🌍 **30+ Languages** - Speak in Spanish, French, German, Chinese, Japanese, and more
-- 🎤 **27+ Professional Voices** - Expanded voice library with multilingual support
-- 💬 **Advanced Sentiment System** - Apply personality styles to ANY voice
-- 🔌 **Enhanced BMAD Plugin** - Multilingual agent voices with personality mapping
+- 🔊 **SSH Audio Optimization** - Auto-detects and converts audio for remote SSH sessions (VS Code Remote, regular SSH, cloud dev)
+- 📚 **Language Learning Mode** - Dual-language TTS with sequential playback and target language replay
+- ⚡ **Unified Speech Speed Control** - Single control for both ElevenLabs and Piper TTS providers
+- 🎙️ **Enhanced MCP Integration** - Smart context detection with project-specific settings
+- 🎤 **Audio Quality Improvements** - Better bitrate preservation and non-blocking playback
+- 🔧 **Improved Provider Switching** - Seamless transitions between ElevenLabs and Piper
 
 [→ View Full Release Notes](RELEASE_NOTES_V2.md) | [→ View All Releases](https://github.com/paulpreibisch/AgentVibes/releases)
 
@@ -503,6 +512,133 @@ All commands are prefixed with `/agent-vibes:`
 
 ---
 
+## 📚 Language Learning Mode
+
+**Learn a second language naturally while you program!** 🌍
+
+AgentVibes' Language Learning Mode is a **breakthrough feature** that helps programmers learn new languages through **context and repetition**. Every task acknowledgment and completion is spoken **twice** - first in your native language (English), then in your target language (e.g., Spanish).
+
+### 🎯 Why This Is Revolutionary
+
+**The Problem:** Traditional language learning apps are disconnected from your daily workflow. You have to stop coding, open Duolingo, and study separately.
+
+**The Solution:** With AgentVibes, you learn **while you code**. Every git commit, every build command, every test run - you hear it in English, then immediately in Spanish. Natural, contextual, effortless learning.
+
+### ✨ How It Works
+
+1. **Set your target language** - Choose from 30+ languages (Spanish, French, German, etc.)
+2. **Enable learning mode** - One simple command
+3. **Code normally** - AgentVibes handles the rest
+4. **Hear everything twice** - English first, then your target language
+5. **Adjust speed** - Slow down target language for better comprehension
+
+### 🚀 Quick Start (Learn Spanish Example)
+
+```bash
+# Step 1: Set Spanish as your target language
+/agent-vibes:target spanish
+
+# Step 2: Enable learning mode
+/agent-vibes:learn
+
+# Step 3: Code normally!
+# Every acknowledgment plays twice:
+#   1st: "Starting the build" (English)
+#   2nd: "Iniciando la compilación" (Spanish)
+
+# Optional: Slow down Spanish for learning
+/agent-vibes:set-speed target 2x    # 2x slower Spanish
+```
+
+### 📖 Example Learning Session
+
+```
+User: "Run the tests"
+
+Claude (English): "Running your test suite now!"
+🔊 Plays in English (Aria voice)
+
+Claude (Spanish): "¡Ejecutando tu suite de pruebas ahora!"
+🔊 Plays in Spanish (Antoni voice, 2x slower if configured)
+
+User: "Fix the bug"
+
+Claude (English): "I'll track down that bug for you!"
+🔊 Plays in English
+
+Claude (Spanish): "¡Voy a rastrear ese error para ti!"
+🔊 Plays in Spanish
+```
+
+### 🎓 Why This Works for Learning
+
+1. **Context-based learning** - Hear programming terms in real situations
+2. **Spaced repetition** - Natural exposure throughout your coding day
+3. **Native pronunciation** - AI voices model perfect accent
+4. **Adjustable pace** - Slow down difficult phrases
+5. **Consistent exposure** - Build vocabulary passively while working
+6. **Zero extra effort** - Learning happens automatically
+
+### 🌍 Supported Target Languages
+
+Spanish, French, German, Italian, Portuguese, Chinese, Japanese, Korean, Russian, Arabic, Hindi, Polish, Dutch, Turkish, Swedish, Danish, Norwegian, Finnish, Czech, Romanian, Ukrainian, Greek, Bulgarian, Croatian, Slovak, and more!
+
+### 🎚️ Advanced Features
+
+**Speech Rate Control:**
+```bash
+# Slow down target language for better comprehension
+/agent-vibes:set-speed target 2x    # 2x slower
+/agent-vibes:set-speed target 3x    # 3x slower (best for beginners)
+/agent-vibes:set-speed normal       # Reset to normal speed
+```
+
+**Mixed Provider Support:**
+- Use **ElevenLabs** for English (premium quality)
+- Use **Piper TTS** for Spanish (free, adjustable speed)
+- System auto-detects provider from voice name
+
+**Auto-Voice Selection:**
+- System picks the best voice for your target language
+- Provider-aware (ElevenLabs voices for ElevenLabs, Piper voices for Piper)
+- Smart fallback if preferred voice unavailable
+
+### 📝 All Language Learning Commands
+
+| Command | Description |
+|---------|-------------|
+| `/agent-vibes:target <language>` | Set target language to learn (e.g., `spanish`) |
+| `/agent-vibes:target-voice <voice>` | Set voice for target language |
+| `/agent-vibes:learn` | Enable/disable learning mode |
+| `/agent-vibes:language <language>` | Set your native/main language |
+| `/agent-vibes:set-speed target <speed>` | Adjust target language speed |
+| `/agent-vibes:set-speed get` | Show current speed settings |
+
+### 💡 Pro Tips
+
+1. **Start with 2x slower** - Give yourself time to process
+2. **Use Piper TTS for free** - Unlimited practice with no API costs
+3. **Learn during routine tasks** - Git commits, builds, tests
+4. **Gradually increase speed** - As you improve, speed up the playback
+5. **Combine with personalities** - Learn sarcasm in Spanish! 😄
+
+### 🎯 Real-World Use Case
+
+**Before AgentVibes Learning Mode:**
+- Study Spanish on Duolingo for 30 minutes
+- Context: Random sentences like "The apple is red"
+- Total daily practice: 30 minutes
+
+**With AgentVibes Learning Mode:**
+- Code for 8 hours with learning mode enabled
+- Context: Real programming tasks you're actually doing
+- Total daily practice: Hundreds of contextual phrases
+- **Result:** Learn programming vocabulary in Spanish naturally!
+
+[↑ Back to top](#-table-of-contents)
+
+---
+
 ## 🎭 Personalities vs Sentiments
 
 ### 🎪 Personalities (Voice + Style)
@@ -719,7 +855,31 @@ I'll do the task
 
 **Running AgentVibes on a remote server but want to hear TTS on your local machine?**
 
-We've got you covered! Our remote audio setup guides you through configuring PulseAudio to tunnel audio from your remote Linux server to your local Windows speakers via SSH.
+We've got you covered! AgentVibes now includes **automatic SSH audio tunnel detection and optimization** for seamless remote audio playback.
+
+### 🎯 Automatic SSH Audio Optimization (v2.0.17+)
+
+**NEW:** AgentVibes automatically detects SSH sessions and optimizes audio for remote playback!
+
+**What it does:**
+- ✅ **Auto-detects** remote SSH sessions (VS Code Remote SSH, regular SSH, cloud environments)
+- ✅ **Auto-converts** audio to 48kHz stereo WAV format for SSH tunnel compatibility
+- ✅ **Eliminates static/clicking** sounds that occur with default audio formats
+- ✅ **Zero configuration** - works out of the box
+
+**How it works:**
+1. AgentVibes checks for SSH environment variables (`SSH_CONNECTION`, `SSH_CLIENT`, `VSCODE_IPC_HOOK_CLI`)
+2. If detected, it converts ElevenLabs audio (44.1kHz mono MP3) to 48kHz stereo WAV
+3. Audio plays clearly through your SSH tunnel without static or distortion
+
+**Supported scenarios:**
+- 🖥️ **VS Code Remote SSH** - Code from local VS Code, run TTS on remote server
+- 🔐 **Regular SSH** - Standard SSH connections with audio tunneling
+- ☁️ **Cloud Dev Environments** - AWS, Azure, GCP instances with SSH access
+
+### 📚 Full Remote Audio Setup Guide
+
+For detailed PulseAudio SSH tunnel configuration:
 
 **[→ Remote Audio Setup Guide](docs/remote-audio-setup.md)**
 
