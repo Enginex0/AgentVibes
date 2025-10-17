@@ -21,7 +21,16 @@ setup_test_env() {
   export ELEVENLABS_API_KEY="test_api_key_mock"
   export CLAUDE_PROJECT_DIR="${BATS_TEST_TMPDIR}/project"
 
+  # Enable test mode for scripts to skip audio generation
+  export AGENTVIBES_TEST_MODE="true"
+
+  # Detect CI environment
+  if [[ "${CI:-false}" == "true" ]] || [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+    export AGENTVIBES_CI_MODE="true"
+  fi
+
   mkdir -p "$CLAUDE_PROJECT_DIR/.claude/audio"
+  mkdir -p "$CLAUDE_PROJECT_DIR/.claude"
 }
 
 # Clean up test environment
@@ -45,17 +54,30 @@ mock_curl() {
 
 # Extract output file from arguments
 OUTPUT_FILE=""
+prev_arg=""
 for arg in "$@"; do
-  if [[ "$prev_arg" == "-o" ]]; then
+  if [[ "$prev_arg" == "-o" ]] || [[ "$prev_arg" == "--output" ]]; then
     OUTPUT_FILE="$arg"
     break
   fi
   prev_arg="$arg"
 done
 
-# Generate a minimal silent MP3 (base64 encoded)
-# This is a valid but minimal MP3 file that's essentially silent
-echo "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAhAD5AAAAAAAAAAAAAAAAAAAAAP/7kGQAAANUMEoFPeACNQV40KEYABEY41g5vAAA9RjpZxRTAImU+W8eshaFpAQgALAAYALATx/nYDYCMJ0HITQYYA7AH4c7MoGsnCMU5pnW+OQnBcDrQ9Xx7w37/D+PimYavV8elKUpT9H5fjvhn+mP+n/9P+7vSJ/nf//5m5IEgwJJVljCJJJJIlzfUlJJJL/+ZJJIliTJZJJJJIid//+ZJJJZJJJJJJJf/nf//0P//7U=" | base64 -d > "$OUTPUT_FILE"
+# If no output file specified, just succeed
+if [[ -z "$OUTPUT_FILE" ]]; then
+  echo '{"success":true}'
+  exit 0
+fi
+
+# Create parent directory if needed
+mkdir -p "$(dirname "$OUTPUT_FILE")"
+
+# Generate a minimal valid MP3 file (base64 encoded)
+# This is a real but tiny MP3 file that's essentially silent
+echo "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAhAD5AAAAAAAAAAAAAAAAAAAAAP/7kGQAAANUMEoFPeACNQV40KEYABEY41g5vAAA9RjpZxRTAImU+W8eshaFpAQgALAAYALATx/nYDYCMJ0HITQYYA7AH4c7MoGsnCMU5pnW+OQnBcDrQ9Xx7w37/D+PimYavV8elKUpT9H5fjvhn+mP+n/9P+7vSJ/nf//5m5IEgwJJVljCJJJJIlzfUlJJJL/+ZJJIliTJZJJJJIid//+ZJJJZJJJJJJJf/nf//0P//7U=" | base64 -d > "$OUTPUT_FILE" 2>/dev/null || {
+  # Fallback: create a minimal placeholder file if base64 fails
+  echo "MOCK_AUDIO_FILE" > "$OUTPUT_FILE"
+}
 
 # Simulate successful response
 exit 0
@@ -113,6 +135,11 @@ setup_agentvibes_scripts() {
 
   # Make scripts executable
   chmod +x "$TEST_CLAUDE_DIR/hooks/"*.sh
+
+  # Ensure all config subdirectories exist
+  mkdir -p "$TEST_CLAUDE_DIR/config"
+  mkdir -p "$CLAUDE_PROJECT_DIR/.claude/config"
+  mkdir -p "$HOME/.claude/config"
 }
 
 # Create a test personality file
