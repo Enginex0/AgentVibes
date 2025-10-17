@@ -35,11 +35,12 @@ class AgentVibesServer:
         agentvibes_root = script_dir.parent  # AgentVibes/
         claude_dir = agentvibes_root / ".claude"
 
-        # Use project-local .claude if it exists
+        # ALWAYS use package .claude for hooks (even in NPX cache)
+        # The package ALWAYS has .claude/ with all the hooks
         if claude_dir.exists() and claude_dir.is_dir():
             return claude_dir
 
-        # Fallback to global ~/.claude
+        # Fallback to global ~/.claude (should never happen in properly installed package)
         return Path.home() / ".claude"
 
     async def text_to_speech(
@@ -88,20 +89,15 @@ class AgentVibesServer:
             env = os.environ.copy()
 
             # Determine where to save settings based on context:
-            # 1. If cwd has .claude/ → Use cwd (real project)
-            # 2. If cwd == AgentVibes dir → Use global ~/.claude/ (Warp)
-            # 3. Otherwise → Use AgentVibes/.claude/ (development)
+            # 1. If cwd has .claude/ → Use cwd (real Claude Code project)
+            # 2. Otherwise → Use global ~/.claude/ (Claude Desktop, Warp, etc.)
+            # Note: Hooks are ALWAYS from package .claude/ (self.claude_dir)
             cwd = Path.cwd()
             if (cwd / ".claude").is_dir() and cwd != self.agentvibes_root:
-                # Real project with .claude directory
+                # Real Claude Code project with .claude directory
                 env["CLAUDE_PROJECT_DIR"] = str(cwd)
-            elif cwd == self.agentvibes_root:
-                # Running from AgentVibes itself (Warp) - use global
-                # Don't set CLAUDE_PROJECT_DIR, let scripts fall back to ~/.claude
-                pass
-            else:
-                # Development context - use AgentVibes directory
-                env["CLAUDE_PROJECT_DIR"] = str(self.agentvibes_root)
+            # else: Don't set CLAUDE_PROJECT_DIR, let scripts fall back to ~/.claude
+            # This handles: Claude Desktop (NPX), Warp, and any non-project context
             # Add common locations for piper to PATH
             home_dir = Path.home()
             local_bin = str(home_dir / ".local" / "bin")
@@ -285,6 +281,43 @@ class AgentVibesServer:
             return result
         return f"❌ Failed to replay audio: {result}"
 
+    async def set_provider(self, provider: str) -> str:
+        """
+        Switch TTS provider between ElevenLabs and Piper.
+
+        Args:
+            provider: Provider name ("elevenlabs" or "piper")
+
+        Returns:
+            Success or error message
+        """
+        provider = provider.lower()
+        if provider not in ["elevenlabs", "piper"]:
+            return f"❌ Invalid provider: {provider}. Choose 'elevenlabs' or 'piper'"
+
+        result = await self._run_script("provider-manager.sh", ["switch", provider])
+        if result and "✓" in result:
+            return result
+        return f"❌ Failed to switch provider: {result}"
+
+    async def set_learn_mode(self, enabled: bool) -> str:
+        """
+        Enable or disable language learning mode.
+
+        When enabled, TTS speaks in both your main language and target language.
+
+        Args:
+            enabled: True to enable, False to disable
+
+        Returns:
+            Success or error message
+        """
+        action = "enable" if enabled else "disable"
+        result = await self._run_script("learn-manager.sh", [action])
+        if result and "✓" in result:
+            return result
+        return f"❌ Failed to set learn mode: {result}"
+
     # Helper methods
     async def _run_script(self, script_name: str, args: list[str]) -> str:
         """Run a bash script and return output"""
@@ -299,20 +332,15 @@ class AgentVibesServer:
         env = os.environ.copy()
 
         # Determine where to save settings based on context:
-        # 1. If cwd has .claude/ → Use cwd (real project)
-        # 2. If cwd == AgentVibes dir → Use global ~/.claude/ (Warp)
-        # 3. Otherwise → Use AgentVibes/.claude/ (development)
+        # 1. If cwd has .claude/ → Use cwd (real Claude Code project)
+        # 2. Otherwise → Use global ~/.claude/ (Claude Desktop, Warp, etc.)
+        # Note: Hooks are ALWAYS from package .claude/ (self.claude_dir)
         cwd = Path.cwd()
         if (cwd / ".claude").is_dir() and cwd != self.agentvibes_root:
-            # Real project with .claude directory
+            # Real Claude Code project with .claude directory
             env["CLAUDE_PROJECT_DIR"] = str(cwd)
-        elif cwd == self.agentvibes_root:
-            # Running from AgentVibes itself (Warp) - use global
-            # Don't set CLAUDE_PROJECT_DIR, let scripts fall back to ~/.claude
-            pass
-        else:
-            # Development context - use AgentVibes directory
-            env["CLAUDE_PROJECT_DIR"] = str(self.agentvibes_root)
+        # else: Don't set CLAUDE_PROJECT_DIR, let scripts fall back to ~/.claude
+        # This handles: Claude Desktop (NPX), Warp, and any non-project context
         # Add common locations for piper to PATH
         home_dir = Path.home()
         local_bin = str(home_dir / ".local" / "bin")
@@ -374,7 +402,8 @@ class AgentVibesServer:
             elif provider == "piper":
                 return "Piper TTS (Free, Offline)"
             return provider
-        return "ElevenLabs (Premium AI)"
+        # Default to Piper (free, offline) instead of ElevenLabs
+        return "Piper TTS (Free, Offline)"
 
 
 # Create the MCP server
@@ -499,6 +528,35 @@ Examples:
                 },
             },
         ),
+        Tool(
+            name="set_provider",
+            description="Switch between ElevenLabs (premium) and Piper (free, offline) TTS providers",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "provider": {
+                        "type": "string",
+                        "description": "Provider name: 'elevenlabs' or 'piper'",
+                        "enum": ["elevenlabs", "piper"]
+                    }
+                },
+                "required": ["provider"],
+            },
+        ),
+        Tool(
+            name="set_learn_mode",
+            description="Enable or disable language learning mode. When ON, TTS speaks in both your main language and target language for bilingual learning.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "True to enable learning mode, False to disable"
+                    }
+                },
+                "required": ["enabled"],
+            },
+        ),
     ]
 
 
@@ -528,6 +586,10 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         elif name == "replay_audio":
             n = arguments.get("n", 1)
             result = await agent_vibes.replay_audio(n)
+        elif name == "set_provider":
+            result = await agent_vibes.set_provider(arguments["provider"])
+        elif name == "set_learn_mode":
+            result = await agent_vibes.set_learn_mode(arguments["enabled"])
         else:
             result = f"Unknown tool: {name}"
 

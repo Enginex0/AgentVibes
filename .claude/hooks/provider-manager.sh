@@ -53,7 +53,7 @@ get_active_provider() {
   local provider_file
   provider_file=$(get_provider_config_path)
 
-  # Read provider from file, default to elevenlabs if not found
+  # Read provider from file, default to piper if not found
   if [[ -f "$provider_file" ]]; then
     local provider
     provider=$(cat "$provider_file" | tr -d '[:space:]')
@@ -63,8 +63,8 @@ get_active_provider() {
     fi
   fi
 
-  # Default to elevenlabs
-  echo "elevenlabs"
+  # Default to piper (free, offline)
+  echo "piper"
 }
 
 # @function set_active_provider
@@ -194,3 +194,41 @@ get_provider_script_path() {
 # AI NOTE: This file provides the core abstraction layer for multi-provider TTS.
 # All provider state is managed through simple text files for simplicity and reliability.
 # Project-local configuration takes precedence over global to support per-project providers.
+
+# Command-line interface (when script is executed, not sourced)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  case "${1:-}" in
+    get)
+      get_active_provider
+      ;;
+    switch|set)
+      if [[ -z "${2:-}" ]]; then
+        echo "❌ Error: Provider name required"
+        echo "Usage: $0 switch <provider>"
+        exit 1
+      fi
+      set_active_provider "$2"
+      ;;
+    list)
+      list_providers
+      ;;
+    validate)
+      if [[ -z "${2:-}" ]]; then
+        echo "❌ Error: Provider name required"
+        echo "Usage: $0 validate <provider>"
+        exit 1
+      fi
+      validate_provider "$2"
+      ;;
+    *)
+      echo "Usage: $0 {get|switch|list|validate} [provider]"
+      echo ""
+      echo "Commands:"
+      echo "  get              - Show active provider"
+      echo "  switch <name>    - Switch to provider"
+      echo "  list             - List available providers"
+      echo "  validate <name>  - Check if provider exists"
+      exit 1
+      ;;
+  esac
+fi
