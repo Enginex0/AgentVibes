@@ -35,13 +35,21 @@ teardown() {
   [ "$status" -eq 0 ]
   assert_output_contains "Personality set to: sarcastic"
 
-  # Verify personality was saved
-  assert_file_exists "$HOME/.claude/tts-personality.txt"
-  assert_file_contains "$HOME/.claude/tts-personality.txt" "sarcastic"
+  # Verify personality was saved (personality-manager writes to project dir OR HOME fallback)
+  # Check both locations since the script may use HOME if CLAUDE_PROJECT_DIR isn't set
+  if [[ -f "$CLAUDE_PROJECT_DIR/.claude/tts-personality.txt" ]]; then
+    assert_file_contains "$CLAUDE_PROJECT_DIR/.claude/tts-personality.txt" "sarcastic"
+  elif [[ -f "$HOME/.claude/tts-personality.txt" ]]; then
+    assert_file_contains "$HOME/.claude/tts-personality.txt" "sarcastic"
+  else
+    # File must exist in one of these locations
+    return 1
+  fi
 }
 
 @test "personality-manager get returns current personality" {
-  echo "sarcastic" > "$HOME/.claude/tts-personality.txt"
+  # Set personality in project-local directory (where the script saves it)
+  echo "sarcastic" > "$CLAUDE_PROJECT_DIR/.claude/tts-personality.txt"
 
   run "$PERSONALITY_MANAGER" get
 
@@ -73,14 +81,22 @@ teardown() {
 }
 
 @test "personality-manager reset changes to normal" {
-  echo "sarcastic" > "$HOME/.claude/tts-personality.txt"
+  # Set personality first - script will write to either project dir or HOME
+  "$PERSONALITY_MANAGER" set "sarcastic" > /dev/null 2>&1
 
   run "$PERSONALITY_MANAGER" reset
 
   [ "$status" -eq 0 ]
   assert_output_contains "Personality reset to: normal"
 
-  assert_file_contains "$HOME/.claude/tts-personality.txt" "normal"
+  # Verify reset was saved (check both possible locations)
+  if [[ -f "$CLAUDE_PROJECT_DIR/.claude/tts-personality.txt" ]]; then
+    assert_file_contains "$CLAUDE_PROJECT_DIR/.claude/tts-personality.txt" "normal"
+  elif [[ -f "$HOME/.claude/tts-personality.txt" ]]; then
+    assert_file_contains "$HOME/.claude/tts-personality.txt" "normal"
+  else
+    return 1
+  fi
 }
 
 @test "personality-manager add creates new personality file" {

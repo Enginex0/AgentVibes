@@ -21,7 +21,10 @@ teardown() {
   run "$VOICE_MANAGER" list
 
   [ "$status" -eq 0 ]
-  assert_output_contains "Available TTS Voices"
+  # Output format includes provider name (ElevenLabs or Piper)
+  # Check for key components rather than exact format
+  assert_output_contains "Available"
+  assert_output_contains "Voices"
   assert_output_contains "Aria"
   assert_output_contains "Cowboy Bob"
 }

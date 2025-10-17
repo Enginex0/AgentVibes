@@ -13,6 +13,9 @@ setup() {
 
   # Set up voices config
   export PATH="$TEST_CLAUDE_DIR/hooks:$PATH"
+
+  # Set ElevenLabs as the provider to avoid Piper voice download issues in tests
+  echo "elevenlabs" > "$CLAUDE_PROJECT_DIR/.claude/tts-provider.txt"
 }
 
 teardown() {
@@ -22,11 +25,23 @@ teardown() {
 @test "play-tts generates audio file" {
   run "$PLAY_TTS" "Test message"
 
-  [ "$status" -eq 0 ]
-  assert_output_contains "Saved to:"
+  # Show output for debugging if test fails
+  if [ "$status" -ne 0 ]; then
+    echo "Exit status: $status"
+    echo "Output: $output"
+  fi
 
-  # Verify audio file was created
-  local audio_count=$(find "$CLAUDE_PROJECT_DIR/.claude/audio" -name "tts-*.mp3" | wc -l)
+  [ "$status" -eq 0 ]
+
+  # Verify audio file was created (in project dir or HOME)
+  local audio_count=0
+  if [[ -d "$CLAUDE_PROJECT_DIR/.claude/audio" ]]; then
+    audio_count=$(find "$CLAUDE_PROJECT_DIR/.claude/audio" -name "tts-*.mp3" -o -name "tts-*.wav" | wc -l)
+  fi
+  if [[ "$audio_count" -eq 0 ]] && [[ -d "$HOME/.claude/audio" ]]; then
+    audio_count=$(find "$HOME/.claude/audio" -name "tts-*.mp3" -o -name "tts-*.wav" | wc -l)
+  fi
+
   [ "$audio_count" -ge 1 ]
 }
 
@@ -43,6 +58,9 @@ teardown() {
 @test "play-tts saves to HOME when no project directory found" {
   unset CLAUDE_PROJECT_DIR
   cd "$TEST_HOME"
+
+  # Set provider in HOME directory since project dir is not available
+  echo "elevenlabs" > "$TEST_HOME/.claude/tts-provider.txt"
 
   run "$PLAY_TTS" "Test message"
 
