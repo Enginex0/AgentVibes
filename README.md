@@ -15,6 +15,19 @@
 
 ---
 
+## 🚀 Quick Links
+
+| I want to... | Go here |
+|--------------|---------|
+| **Install AgentVibes** | [Quick Start Guide](docs/quick-start.md) |
+| **Set up on Windows** | [Windows Setup](mcp-server/WINDOWS_SETUP.md) |
+| **Use natural language** | [MCP Setup](docs/mcp-setup.md) |
+| **Switch voices** | [Voice Library](docs/voice-library.md) |
+| **Learn Spanish while coding** | [Language Learning Mode](docs/language-learning-mode.md) |
+| **Fix issues** | [Troubleshooting](docs/troubleshooting.md) |
+
+---
+
 ## ✨ What is AgentVibes?
 
 **AgentVibes adds lively voice narration to your Claude AI sessions!**
@@ -52,19 +65,17 @@ Whether you're coding in Claude Code, chatting in Claude Desktop, or using Warp 
   - [For Claude Desktop](docs/mcp-setup.md#for-claude-desktop) - Windows/WSL setup, Python requirements
   - [For Warp Terminal](docs/mcp-setup.md#for-warp-terminal) - Warp configuration
   - [For Claude Code](docs/mcp-setup.md#for-claude-code) - Project-specific setup
-- [📦 What Gets Installed](#-installation-structure) - MCP dependencies & settings
 
 ### Core Features
 - [🎤 Commands Reference](#-commands-reference) - All available commands
 - [📚 Language Learning Mode](#-language-learning-mode) - **NEW!** Learn Spanish while you program
 - [🎭 Personalities vs Sentiments](#-personalities-vs-sentiments) - Two systems explained
 - [🗣️ Voice Library](#%EF%B8%8F-voice-library) - 27+ professional voices
-- [🌍 Multilingual Support](#change-language) - Speak in 30+ languages
 - [🔌 BMAD Plugin](#-bmad-plugin) - Auto voice switching for BMAD agents
 
 ### Advanced Topics
 - [📦 Installation Structure](#-installation-structure) - What gets installed
-- [💡 Usage Examples](#-usage-examples) - Common workflows
+- [💡 Common Workflows](#-common-workflows) - Quick examples
 - [🔧 Advanced Features](#-advanced-features) - Custom voices & personalities
 - [🔊 Remote Audio Setup](#-remote-audio-setup) - Play TTS from remote servers
 - [❓ Troubleshooting](#-troubleshooting) - Common issues & fixes
@@ -94,6 +105,8 @@ Plus: **Language Learning Mode** (e.g., Learn Spanish while you program!) with d
 - 🔧 **Improved Provider Switching** - Seamless transitions between ElevenLabs and Piper
 
 [→ View Full Release Notes](RELEASE_NOTES_V2.md) | [→ View All Releases](https://github.com/paulpreibisch/AgentVibes/releases)
+
+[↑ Back to top](#-table-of-contents)
 
 ---
 
@@ -133,11 +146,11 @@ Get AgentVibes running in 3 steps: **Install** → **Choose Provider** (Piper/El
 
 ---
 
-## 🎭 Multi-Provider Support
+## 🎭 Choose Your Voice Provider
 
-Choose between **ElevenLabs** (150+ premium voices) or **Piper TTS** (50+ free voices, works offline).
+**ElevenLabs** (premium AI voices) or **Piper TTS** (free, works offline) - pick one and switch anytime.
 
-**[→ View Complete Provider Guide](docs/providers.md)** - Full comparison, features, setup, and switching instructions
+**[→ Provider Comparison Guide](docs/providers.md)**
 
 [↑ Back to top](#-table-of-contents)
 
@@ -182,30 +195,12 @@ Every task acknowledgment plays **twice** - first in English, then in your targe
 
 ## 🎭 Personalities vs Sentiments
 
-**Two ways to add personality to Claude's voice:**
+**Two ways to add personality:**
 
-### 🎪 Personalities (Voice + Style)
-Changes **both** voice AND how Claude talks. Each personality has a dedicated voice.
+- **🎪 Personalities** - Changes BOTH voice AND speaking style (e.g., `pirate` personality = Pirate Marshal voice + pirate speak)
+- **💭 Sentiments** - Keeps your current voice, only changes speaking style (e.g., Aria voice + sarcastic sentiment)
 
-**Examples:** `sarcastic`, `pirate`, `grandpa`, `flirty`, `zen`, `robot`
-
-```bash
-/agent-vibes:personality pirate       # Uses Pirate Marshal voice + pirate speak
-```
-
-### 💭 Sentiments (Style Only)
-Applies personality style to **your current voice** without changing it.
-
-```bash
-/agent-vibes:switch Aria              # Set voice
-/agent-vibes:sentiment sarcastic      # Add sarcasm to Aria
-```
-
-**Key Difference:**
-- **Personality** = Changes voice + style
-- **Sentiment** = Keeps your voice + adds style
-
-**[→ View Complete Personalities Guide](docs/personalities.md)** - All 19 personalities, voice mappings, and how to create custom ones
+**[→ Complete Personalities Guide](docs/personalities.md)** - All 19 personalities, create custom ones
 
 [↑ Back to top](#-table-of-contents)
 
@@ -247,75 +242,26 @@ The BMAD plugin detects when you activate a BMAD agent (e.g., `/BMad:agents:pm`)
 
 ---
 
-## 💡 Usage Examples
-
-### Switch Voices
+## 💡 Common Workflows
 
 ```bash
+# Switch voices
 /agent-vibes:list                    # See all voices
-/agent-vibes:switch Aria             # Switch to Aria
-/agent-vibes:switch "Cowboy Bob"     # Switch to Cowboy Bob
-/agent-vibes:whoami                  # Check current setup
-```
+/agent-vibes:switch Aria             # Change voice
 
-### Try Personalities
-
-```bash
-/agent-vibes:personality sarcastic   # Sarcastic + Jessica Anne Bogart
-/agent-vibes:personality pirate      # Pirate + Pirate Marshal
-/agent-vibes:personality dry-humor   # British wit + Aria
+# Try personalities
+/agent-vibes:personality pirate      # Pirate voice + style
 /agent-vibes:personality list        # See all 19 personalities
-```
 
-### Use Sentiments
+# Speak in other languages
+/agent-vibes:set-language spanish    # Speak in Spanish
+/agent-vibes:set-language list       # See 30+ languages
 
-```bash
-/agent-vibes:switch Aria             # Set to Aria voice
-/agent-vibes:sentiment sarcastic     # Add sarcasm to Aria
-/agent-vibes:sentiment clear         # Remove sentiment
-```
-
-### Audio Replay
-
-```bash
+# Replay audio
 /agent-vibes:replay                  # Replay last message
-/agent-vibes:replay 3                # Replay 3rd-to-last
 ```
 
-### Voice Preview
-
-```bash
-/agent-vibes:preview                 # Hear first 3 voices
-/agent-vibes:preview 10              # Hear first 10
-/agent-vibes:preview last 5          # Hear last 5
-```
-
-### Change Language
-
-Make Claude speak in **30+ languages** using multilingual voices:
-
-```bash
-# Set to Spanish
-/agent-vibes:set-language spanish
-
-# Set to French
-/agent-vibes:set-language french
-
-# Set to German
-/agent-vibes:set-language german
-
-# See all supported languages
-/agent-vibes:set-language list
-
-# Reset to English
-/agent-vibes:set-language english
-```
-
-**Supported Languages:**
-- Spanish, French, German, Italian, Portuguese
-- Chinese, Japanese, Korean, Hindi, Arabic
-- Polish, Dutch, Turkish, Swedish, Russian
-- And 15+ more!
+**💡 Tip:** Using MCP? Just say "Switch to Aria voice" or "Speak in Spanish" instead of typing commands.
 
 [↑ Back to top](#-table-of-contents)
 
@@ -345,35 +291,13 @@ AgentVibes supports **custom personalities**, **custom voices**, and **integrati
 
 ## 🔊 Remote Audio Setup
 
-**Running AgentVibes on a remote server but want to hear TTS on your local machine?**
+**Running AgentVibes on a remote server?** No problem!
 
-We've got you covered! AgentVibes now includes **automatic SSH audio tunnel detection and optimization** for seamless remote audio playback.
+✅ **Auto-detects SSH sessions** - Works with VS Code Remote SSH, regular SSH, cloud dev environments
+✅ **Zero configuration** - Audio optimizes automatically
+✅ **No static/clicking** - Clean playback through SSH tunnels
 
-### 🎯 Automatic SSH Audio Optimization (v2.0.17+)
-
-**NEW:** AgentVibes automatically detects SSH sessions and optimizes audio for remote playback!
-
-**What it does:**
-- ✅ **Auto-detects** remote SSH sessions (VS Code Remote SSH, regular SSH, cloud environments)
-- ✅ **Auto-converts** audio to 48kHz stereo WAV format for SSH tunnel compatibility
-- ✅ **Eliminates static/clicking** sounds that occur with default audio formats
-- ✅ **Zero configuration** - works out of the box
-
-**How it works:**
-1. AgentVibes checks for SSH environment variables (`SSH_CONNECTION`, `SSH_CLIENT`, `VSCODE_IPC_HOOK_CLI`)
-2. If detected, it converts ElevenLabs audio (44.1kHz mono MP3) to 48kHz stereo WAV
-3. Audio plays clearly through your SSH tunnel without static or distortion
-
-**Supported scenarios:**
-- 🖥️ **VS Code Remote SSH** - Code from local VS Code, run TTS on remote server
-- 🔐 **Regular SSH** - Standard SSH connections with audio tunneling
-- ☁️ **Cloud Dev Environments** - AWS, Azure, GCP instances with SSH access
-
-### 📚 Full Remote Audio Setup Guide
-
-For detailed PulseAudio SSH tunnel configuration:
-
-**[→ Remote Audio Setup Guide](docs/remote-audio-setup.md)**
+**[→ Remote Audio Setup Guide](docs/remote-audio-setup.md)** - Full PulseAudio configuration details
 
 [↑ Back to top](#-table-of-contents)
 
