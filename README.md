@@ -66,7 +66,6 @@ Whether you're coding in Claude Code, chatting in Claude Desktop, or using Warp 
 - [💡 Usage Examples](#usage-examples) - Common workflows
 - [🔧 Advanced Features](#advanced-features) - Custom voices & personalities
 - [🔊 Remote Audio Setup](#remote-audio-setup) - Play TTS from remote servers
-- [💰 Pricing & Usage](#pricing--usage) - ElevenLabs costs & monitoring
 - [❓ Troubleshooting](#troubleshooting) - Common issues & fixes
 
 ### Additional Resources
@@ -111,85 +110,11 @@ Just say "Switch to Aria voice" or "Speak in Spanish" instead of typing commands
 
 ---
 
-## 🚀 Claude Code Quick Start
+## 🚀 Quick Start
 
-### Step 1: Install AgentVibes
+Get AgentVibes running in 3 steps: **Install** → **Choose Provider** (Piper/ElevenLabs) → **Enable Voice**
 
-Choose your preferred installation method:
-
-#### **Option A: Using npx (Recommended)** ⚡
-No installation needed! Run directly:
-```bash
-npx agentvibes install
-```
-
-#### **Option B: Install globally via npm** 📦
-Install once, use anywhere:
-```bash
-npm install -g agentvibes
-agentvibes install
-```
-
-#### **Option C: From source (Development)** 🔧
-Clone and run from repository:
-```bash
-git clone https://github.com/paulpreibisch/AgentVibes.git
-cd AgentVibes
-npm install
-node bin/agent-vibes install
-```
-
-### Step 2: Choose Your TTS Provider
-
-AgentVibes supports two TTS providers - pick the one that fits your needs:
-
-#### **Option A: Piper TTS (Free, Recommended for Getting Started)** 🆓
-
-**No setup required!** Piper TTS works out of the box with zero configuration.
-
-- ✅ Completely free, no API key needed
-- ✅ Works offline (perfect for Windows, WSL, Linux)
-- ✅ 50+ neural voices
-- ✅ 18 languages supported
-- ✅ Privacy-focused local processing
-
-**To use:** Just install AgentVibes and you're done! The installer will set Piper as default if no ElevenLabs key is detected.
-
-#### **Option B: ElevenLabs (Premium AI Voices)** 🎤
-
-**Best for production and variety.** Requires API key but offers 150+ premium voices.
-
-- ✅ 150+ professional AI voices
-- ✅ 30+ languages with multilingual v2
-- ✅ Studio-quality audio with emotional range
-- ✅ Character voices and unique personalities
-
-**Setup steps:**
-
-1. Sign up at [elevenlabs.io](https://elevenlabs.io/) (free tier: 10,000 chars/month)
-2. Copy your API key from the dashboard
-3. Add it to your environment:
-
-```bash
-# Add to ~/.bashrc or ~/.zshrc
-echo 'export ELEVENLABS_API_KEY="your-api-key-here"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-**Switch providers anytime:** `/agent-vibes:provider switch`
-
-### Step 3: Enable Voice ⚠️ **CRITICAL STEP**
-
-#### For Claude Code:
-**🔴 REQUIRED:** You MUST run this command to enable TTS in Claude Code:
-```bash
-/output-style agent-vibes
-```
-
-#### For Claude Desktop/Warp:
-**Already works!** AgentVibes MCP is enabled by default once configured.
-
-**That's it! Claude will now speak to you!** 🎉
+**[→ View Complete Quick Start Guide](docs/quick-start.md)** - Full installation options, provider setup, and activation steps
 
 [↑ Back to top](#-table-of-contents)
 
@@ -197,19 +122,9 @@ source ~/.bashrc
 
 ## 🎭 Multi-Provider Support
 
-AgentVibes supports **two TTS providers** - choose between premium ElevenLabs AI voices or free offline Piper TTS!
+Choose between **ElevenLabs** (150+ premium voices) or **Piper TTS** (50+ free voices, works offline).
 
-**Quick Comparison:**
-- **ElevenLabs**: 150+ premium voices, 30+ languages, studio-quality (requires API key, $0-99/month)
-- **Piper TTS**: 50+ neural voices, 18 languages, completely free, works offline (no API key needed)
-
-**Switch providers anytime:**
-```bash
-/agent-vibes:provider switch
-# Or: "Switch to Piper TTS" (MCP)
-```
-
-**[→ View Complete Provider Guide](docs/providers.md)** - Full comparison, pricing, features, and setup instructions
+**[→ View Complete Provider Guide](docs/providers.md)** - Full comparison, features, setup, and switching instructions
 
 [↑ Back to top](#-table-of-contents)
 
@@ -446,22 +361,6 @@ We've got you covered! AgentVibes now includes **automatic SSH audio tunnel dete
 For detailed PulseAudio SSH tunnel configuration:
 
 **[→ Remote Audio Setup Guide](docs/remote-audio-setup.md)**
-
-[↑ Back to top](#-table-of-contents)
-
----
-
-## 💰 Pricing & Usage
-
-**ElevenLabs Pricing (2025):**
-- **Free**: $0/month - 10,000 chars (light use)
-- **Starter**: $5/month - 30,000 chars (1-2 hrs/day)
-- **Creator**: $22/month - 100,000 chars (4-5 hrs/day)
-- **Pro**: $99/month - 500,000 chars (8+ hrs/day)
-
-**Monitor Usage:** [ElevenLabs Dashboard](https://elevenlabs.io/app/usage)
-
-**[→ View Complete Pricing Guide](docs/pricing.md)** - Full pricing breakdown, usage monitoring, and cost optimization tips
 
 [↑ Back to top](#-table-of-contents)
 

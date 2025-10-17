@@ -1,0 +1,85 @@
+# 🚀 Claude Code Quick Start
+
+Get AgentVibes up and running in 3 simple steps!
+
+## Step 1: Install AgentVibes
+
+Choose your preferred installation method:
+
+### **Option A: Using npx (Recommended)** ⚡
+No installation needed! Run directly:
+```bash
+npx agentvibes install
+```
+
+### **Option B: Install globally via npm** 📦
+Install once, use anywhere:
+```bash
+npm install -g agentvibes
+agentvibes install
+```
+
+### **Option C: From source (Development)** 🔧
+Clone and run from repository:
+```bash
+git clone https://github.com/paulpreibisch/AgentVibes.git
+cd AgentVibes
+npm install
+node bin/agent-vibes install
+```
+
+## Step 2: Choose Your TTS Provider
+
+AgentVibes supports two TTS providers - pick the one that fits your needs:
+
+### **Option A: Piper TTS (Free, Recommended for Getting Started)** 🆓
+
+**No setup required!** Piper TTS works out of the box with zero configuration.
+
+- ✅ Completely free, no API key needed
+- ✅ Works offline (perfect for Windows, WSL, Linux)
+- ✅ 50+ neural voices
+- ✅ 18 languages supported
+- ✅ Privacy-focused local processing
+
+**To use:** Just install AgentVibes and you're done! The installer will set Piper as default if no ElevenLabs key is detected.
+
+### **Option B: ElevenLabs (Premium AI Voices)** 🎤
+
+**Best for production and variety.** Requires API key but offers 150+ premium voices.
+
+- ✅ 150+ professional AI voices
+- ✅ 30+ languages with multilingual v2
+- ✅ Studio-quality audio with emotional range
+- ✅ Character voices and unique personalities
+
+**Setup steps:**
+
+1. Sign up at [elevenlabs.io](https://elevenlabs.io/) (free tier: 10,000 chars/month)
+2. Copy your API key from the dashboard
+3. Add it to your environment:
+
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+echo 'export ELEVENLABS_API_KEY="your-api-key-here"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Switch providers anytime:** `/agent-vibes:provider switch`
+
+## Step 3: Enable Voice ⚠️ **CRITICAL STEP**
+
+### For Claude Code:
+**🔴 REQUIRED:** You MUST run this command to enable TTS in Claude Code:
+```bash
+/output-style agent-vibes
+```
+
+### For Claude Desktop/Warp:
+**Already works!** AgentVibes MCP is enabled by default once configured.
+
+**That's it! Claude will now speak to you!** 🎉
+
+---
+
+**[← Back to Main README](../README.md)**
