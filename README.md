@@ -48,9 +48,9 @@ Whether you're coding in Claude Code, chatting in Claude Desktop, or using Warp 
 
 ### AgentVibes MCP (Natural Language Control)
 - [🎙️ AgentVibes MCP Overview](#%EF%B8%8F-agentvibes-mcp) - **Easiest way** - Natural language commands
-  - [For Claude Desktop](#for-claude-desktop) - Windows/WSL setup, Python requirements
-  - [For Warp Terminal](#for-warp-terminal) - Warp configuration
-  - [For Claude Code](#for-claude-code) - Project-specific setup
+  - [For Claude Desktop](docs/mcp-setup.md#for-claude-desktop) - Windows/WSL setup, Python requirements
+  - [For Warp Terminal](docs/mcp-setup.md#for-warp-terminal) - Warp configuration
+  - [For Claude Code](docs/mcp-setup.md#for-claude-code) - Project-specific setup
 - [📦 What Gets Installed](#-installation-structure) - MCP dependencies & settings
 
 ### Core Features
