@@ -20,7 +20,7 @@
 | I want to... | Go here |
 |--------------|---------|
 | **Install AgentVibes** | [Quick Start Guide](docs/quick-start.md) |
-| **Set up on Windows** | [Windows Setup](mcp-server/WINDOWS_SETUP.md) |
+| **Set up on Windows (Claude Desktop)** | [Windows Setup Guide](mcp-server/WINDOWS_SETUP.md) |
 | **Use natural language** | [MCP Setup](docs/mcp-setup.md) |
 | **Switch voices** | [Voice Library](docs/voice-library.md) |
 | **Learn Spanish while coding** | [Language Learning Mode](docs/language-learning-mode.md) |

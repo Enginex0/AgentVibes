@@ -26,12 +26,7 @@ Instead of remembering slash commands like `/agent-vibes:switch Aria`, just say:
 
 ### For Claude Desktop
 
-**⚠️ IMPORTANT Requirements:**
-
-- **Windows:** WSL (Windows Subsystem for Linux) must be enabled
-- **Python 3:** Must be installed on your system ([Download Python](https://www.python.org/downloads/))
-  - The MCP server will automatically install Python packages (mcp, pipx, Piper TTS)
-  - But Python 3 itself must be installed first by you
+**📖 Read This First:** If you haven't installed Claude Desktop yet, [click here for the Windows Setup Guide](../mcp-server/WINDOWS_SETUP.md) - it covers WSL setup, Python installation, and all prerequisites.
 
 **Step 1: Set Your ElevenLabs API Key (Windows)**
 
