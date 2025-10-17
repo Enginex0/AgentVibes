@@ -330,6 +330,35 @@ class AgentVibesServer:
             return result
         return f"❌ Failed to set learn mode: {result}"
 
+    async def set_speed(self, speed: str, target: bool = False) -> str:
+        """
+        Set speech speed for main or target voice.
+
+        Works with both Piper and ElevenLabs providers.
+
+        Args:
+            speed: Speed value (e.g., "0.5x", "1x", "2x", "normal", "fast", "slow")
+            target: If True, sets target language speed; if False, sets main voice speed
+
+        Returns:
+            Success or error message
+        """
+        args = ["target", speed] if target else [speed]
+        result = await self._run_script("speed-manager.sh", args)
+        if result and "✓" in result:
+            return result
+        return f"❌ Failed to set speed: {result}"
+
+    async def get_speed(self) -> str:
+        """
+        Get current speech speed settings.
+
+        Returns:
+            Current speed settings for main and target voices
+        """
+        result = await self._run_script("speed-manager.sh", ["get"])
+        return result if result else "❌ Failed to get speed settings"
+
     # Helper methods
     async def _run_script(self, script_name: str, args: list[str]) -> str:
         """Run a bash script and return output"""
@@ -569,6 +598,30 @@ Examples:
                 "required": ["enabled"],
             },
         ),
+        Tool(
+            name="set_speed",
+            description="Set speech speed for main or target voice. Works with both Piper and ElevenLabs providers. Use this to make voices faster or slower.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "speed": {
+                        "type": "string",
+                        "description": "Speed value: '0.5x' or 'fast' (2x faster), '1x' or 'normal' (normal speed), '2x' or 'slow' (2x slower), '3x' or 'slower' (3x slower)"
+                    },
+                    "target": {
+                        "type": "boolean",
+                        "description": "If true, sets target language speed (for learning mode); if false or omitted, sets main voice speed",
+                        "default": False
+                    }
+                },
+                "required": ["speed"],
+            },
+        ),
+        Tool(
+            name="get_speed",
+            description="Get current speech speed settings for main and target voices",
+            inputSchema={"type": "object", "properties": {}},
+        ),
     ]
 
 
@@ -602,6 +655,11 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             result = await agent_vibes.set_provider(arguments["provider"])
         elif name == "set_learn_mode":
             result = await agent_vibes.set_learn_mode(arguments["enabled"])
+        elif name == "set_speed":
+            target = arguments.get("target", False)
+            result = await agent_vibes.set_speed(arguments["speed"], target)
+        elif name == "get_speed":
+            result = await agent_vibes.get_speed()
         else:
             result = f"Unknown tool: {name}"
 

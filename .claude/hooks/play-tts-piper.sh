@@ -148,19 +148,28 @@ TEMP_FILE="$AUDIO_DIR/tts-$(date +%s).wav"
 # @intent Determine speech rate for Piper synthesis
 # @why Allow slower speech for language learning (default 2.0 for non-English)
 # @returns Speech rate value (default 1.0 for English, 2.0 for others)
+# @note Uses provider-agnostic file names with backward compatibility for legacy files
 get_speech_rate() {
   local target_config=""
   local main_config=""
 
-  # Check for target-specific config first (used for learning mode target language)
-  if [[ -f "$SCRIPT_DIR/../config/piper-target-speech-rate.txt" ]]; then
+  # Check for target-specific config first (new and legacy paths)
+  if [[ -f "$SCRIPT_DIR/../config/tts-target-speech-rate.txt" ]]; then
+    target_config="$SCRIPT_DIR/../config/tts-target-speech-rate.txt"
+  elif [[ -f "$HOME/.claude/config/tts-target-speech-rate.txt" ]]; then
+    target_config="$HOME/.claude/config/tts-target-speech-rate.txt"
+  elif [[ -f "$SCRIPT_DIR/../config/piper-target-speech-rate.txt" ]]; then
     target_config="$SCRIPT_DIR/../config/piper-target-speech-rate.txt"
   elif [[ -f "$HOME/.claude/config/piper-target-speech-rate.txt" ]]; then
     target_config="$HOME/.claude/config/piper-target-speech-rate.txt"
   fi
 
-  # Check for main config
-  if [[ -f "$SCRIPT_DIR/../config/piper-speech-rate.txt" ]]; then
+  # Check for main config (new and legacy paths)
+  if [[ -f "$SCRIPT_DIR/../config/tts-speech-rate.txt" ]]; then
+    main_config="$SCRIPT_DIR/../config/tts-speech-rate.txt"
+  elif [[ -f "$HOME/.claude/config/tts-speech-rate.txt" ]]; then
+    main_config="$HOME/.claude/config/tts-speech-rate.txt"
+  elif [[ -f "$SCRIPT_DIR/../config/piper-speech-rate.txt" ]]; then
     main_config="$SCRIPT_DIR/../config/piper-speech-rate.txt"
   elif [[ -f "$HOME/.claude/config/piper-speech-rate.txt" ]]; then
     main_config="$HOME/.claude/config/piper-speech-rate.txt"

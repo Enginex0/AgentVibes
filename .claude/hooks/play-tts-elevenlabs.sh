@@ -178,18 +178,87 @@ else
   MODEL_ID="eleven_multilingual_v2"
 fi
 
+# @function get_speech_speed
+# @intent Read speed config and convert for ElevenLabs API
+# @why ElevenLabs uses speed multiplier (0.5=slower, 2.0=faster) opposite from Piper
+# @returns Speed value for ElevenLabs API (inverted from Piper's length-scale)
+get_speech_speed() {
+  local config_dir=""
+
+  # Determine config directory
+  if [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -d "$CLAUDE_PROJECT_DIR/.claude" ]]; then
+    config_dir="$CLAUDE_PROJECT_DIR/.claude/config"
+  else
+    # Try to find .claude in current path
+    local current_dir="$PWD"
+    while [[ "$current_dir" != "/" ]]; do
+      if [[ -d "$current_dir/.claude" ]]; then
+        config_dir="$current_dir/.claude/config"
+        break
+      fi
+      current_dir=$(dirname "$current_dir")
+    done
+    # Fallback to global
+    if [[ -z "$config_dir" ]]; then
+      config_dir="$HOME/.claude/config"
+    fi
+  fi
+
+  local main_speed_file="$config_dir/tts-speech-rate.txt"
+  local target_speed_file="$config_dir/tts-target-speech-rate.txt"
+
+  # Legacy file paths for backward compatibility
+  local legacy_main_speed_file="$config_dir/piper-speech-rate.txt"
+  local legacy_target_speed_file="$config_dir/piper-target-speech-rate.txt"
+
+  # If this is a non-English voice and target config exists, use it
+  if [[ "$CURRENT_LANGUAGE" != "english" ]]; then
+    if [[ -f "$target_speed_file" ]]; then
+      local speed=$(cat "$target_speed_file" 2>/dev/null)
+      # Convert from Piper scale to ElevenLabs scale (invert)
+      # Piper: 0.5=faster, 2.0=slower
+      # ElevenLabs: 0.5=slower, 2.0=faster
+      # Formula: elevenlabs_speed = 2.0 / piper_length_scale
+      echo "scale=2; 2.0 / $speed" | bc -l 2>/dev/null || echo "1.0"
+      return
+    elif [[ -f "$legacy_target_speed_file" ]]; then
+      local speed=$(cat "$legacy_target_speed_file" 2>/dev/null)
+      echo "scale=2; 2.0 / $speed" | bc -l 2>/dev/null || echo "1.0"
+      return
+    fi
+  fi
+
+  # Otherwise use main config if available
+  if [[ -f "$main_speed_file" ]]; then
+    local speed=$(grep -v '^#' "$main_speed_file" 2>/dev/null | grep -v '^$' | tail -1)
+    echo "scale=2; 2.0 / $speed" | bc -l 2>/dev/null || echo "1.0"
+    return
+  elif [[ -f "$legacy_main_speed_file" ]]; then
+    local speed=$(grep -v '^#' "$legacy_main_speed_file" 2>/dev/null | grep -v '^$' | tail -1)
+    echo "scale=2; 2.0 / $speed" | bc -l 2>/dev/null || echo "1.0"
+    return
+  fi
+
+  # Default: 1.0 (normal speed)
+  echo "1.0"
+}
+
+SPEECH_SPEED=$(get_speech_speed)
+
 # Build JSON payload with jq for proper escaping
 PAYLOAD=$(jq -n \
   --arg text "$TEXT" \
   --arg model "$MODEL_ID" \
   --arg lang "$LANGUAGE_CODE" \
+  --argjson speed "$SPEECH_SPEED" \
   '{
     text: $text,
     model_id: $model,
     language_code: $lang,
     voice_settings: {
       stability: 0.5,
-      similarity_boost: 0.75
+      similarity_boost: 0.75,
+      speed: $speed
     }
   }')
 

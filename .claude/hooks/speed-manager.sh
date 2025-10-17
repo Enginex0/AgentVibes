@@ -1,8 +1,9 @@
 #!/bin/bash
 #
-# @fileoverview Speech Speed Manager for Piper TTS
+# @fileoverview Speech Speed Manager for Multi-Provider TTS
 # @context Manage speech rate for main and target language voices
-# @architecture Simple config file manager for Piper length-scale parameter
+# @architecture Simple config file manager supporting both Piper and ElevenLabs
+# @providers Piper (length-scale), ElevenLabs (speed API parameter)
 #
 
 # Get script directory
@@ -29,13 +30,19 @@ fi
 
 mkdir -p "$CONFIG_DIR"
 
-MAIN_SPEED_FILE="$CONFIG_DIR/piper-speech-rate.txt"
-TARGET_SPEED_FILE="$CONFIG_DIR/piper-target-speech-rate.txt"
+MAIN_SPEED_FILE="$CONFIG_DIR/tts-speech-rate.txt"
+TARGET_SPEED_FILE="$CONFIG_DIR/tts-target-speech-rate.txt"
+
+# Legacy file paths for backward compatibility (Piper-specific naming)
+LEGACY_MAIN_SPEED_FILE="$CONFIG_DIR/piper-speech-rate.txt"
+LEGACY_TARGET_SPEED_FILE="$CONFIG_DIR/piper-target-speech-rate.txt"
 
 # @function parse_speed_value
-# @intent Convert user-friendly speed notation to Piper length-scale value
+# @intent Convert user-friendly speed notation to normalized speed value
 # @param $1 Speed string (e.g., "2x", "+2x", "-2x", "0.5x", "normal")
-# @returns Numeric length-scale value
+# @returns Numeric speed value (works for both Piper length-scale and ElevenLabs speed)
+# @note For Piper: length-scale (0.5=faster, 2.0=slower)
+# @note For ElevenLabs: speed multiplier (0.5=slower, 2.0=faster) - will be converted in provider script
 parse_speed_value() {
   local input="$1"
 
@@ -148,7 +155,7 @@ set_speed() {
   esac
 
   echo ""
-  echo "Note: Speed control only works with Piper TTS voices"
+  echo "Note: Speed control works with both Piper and ElevenLabs providers"
 
   # Test the new speed
   if command -v bc &> /dev/null; then
@@ -165,9 +172,27 @@ set_speed() {
   fi
 }
 
+# @function migrate_legacy_files
+# @intent Migrate from old piper-specific files to provider-agnostic files
+# @why Ensure backward compatibility when upgrading from Piper-only to multi-provider
+migrate_legacy_files() {
+  # Migrate main speed file
+  if [[ -f "$LEGACY_MAIN_SPEED_FILE" ]] && [[ ! -f "$MAIN_SPEED_FILE" ]]; then
+    cp "$LEGACY_MAIN_SPEED_FILE" "$MAIN_SPEED_FILE"
+  fi
+
+  # Migrate target speed file
+  if [[ -f "$LEGACY_TARGET_SPEED_FILE" ]] && [[ ! -f "$TARGET_SPEED_FILE" ]]; then
+    cp "$LEGACY_TARGET_SPEED_FILE" "$TARGET_SPEED_FILE"
+  fi
+}
+
 # @function get_speed
 # @intent Display current speech speed settings
 get_speed() {
+  # Migrate legacy files if needed
+  migrate_legacy_files
+
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "   Current Speech Speed Settings"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -190,6 +215,7 @@ get_speed() {
   fi
 
   echo ""
+  echo "Works with: Piper TTS and ElevenLabs"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 
