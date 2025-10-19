@@ -6,34 +6,14 @@ All commands are prefixed with `/agent-vibes:`
 
 | Command | AgentVibes MCP Equivalent | Description |
 |---------|----------------|-------------|
-| `/agent-vibes:list` | "List all voices" or "What voices are available?" | Show all available voices (expands multi-speaker voices) |
+| `/agent-vibes:list` | "List all voices" or "What voices are available?" | Show all available voices |
 | `/agent-vibes:switch <voice>` | "Switch to Aria voice" or "Change voice to Cowboy Bob" | Change to a different voice |
-| `/agent-vibes:switch <voice>#<speaker>` | "Switch to 16Speakers#15" or "Use Kristin from 16Speakers" | Switch to specific speaker in multi-speaker voice |
 | `/agent-vibes:whoami` | "What's my current voice?" or "Show my configuration" | Show current voice, sentiment & personality |
 | `/agent-vibes:preview [N]` | "Preview voices" or "Let me hear the first 5 voices" | Preview voices with audio samples |
 | `/agent-vibes:sample <voice>` | "Test Aria voice" or "Let me hear Cowboy Bob" | Test a specific voice |
 | `/agent-vibes:add <name> <id>` | "Add custom voice MyVoice with ID abc123" | Add custom ElevenLabs voice |
 | `/agent-vibes:replay [N]` | "Replay last message" or "Replay the 3rd message" | Replay recent TTS audio |
 | `/agent-vibes:get` | "What voice am I using?" or "Get current voice" | Get currently selected voice |
-
-### Multi-Speaker Voices
-
-AgentVibes supports multi-speaker Piper voices that contain multiple voice personalities in one model:
-
-- **16Speakers** - Contains 16 different voices (Cori, Kara, Kristin, Maria, Mike, Mark, Michael, James, Rose, progressingamerica, Steve, Owlivia, Paul, Jennifer, Emily, Martin)
-
-**Usage:**
-```bash
-# List all speakers in a multi-speaker voice
-/agent-vibes:list
-
-# Switch to a specific speaker (0-based index)
-/agent-vibes:switch 16Speakers#0   # Cori Samuel
-/agent-vibes:switch 16Speakers#2   # Kristin Hughes
-/agent-vibes:switch 16Speakers#15  # Martin Clifton
-```
-
-The list command will show all available speakers with their names and IDs, marking your current selection with `▶`.
 
 ## System Commands
 

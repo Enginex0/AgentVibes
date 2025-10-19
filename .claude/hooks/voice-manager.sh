@@ -87,64 +87,17 @@ case "$1" in
         source "$SCRIPT_DIR/piper-voice-manager.sh"
         VOICE_DIR=$(get_voice_storage_dir)
         VOICE_COUNT=0
-
-        # Extract base voice name and speaker ID from current voice if it has # format
-        CURRENT_BASE_VOICE="$CURRENT_VOICE"
-        CURRENT_SPEAKER_ID=""
-        if [[ "$CURRENT_VOICE" == *"#"* ]]; then
-          CURRENT_BASE_VOICE="${CURRENT_VOICE%%#*}"
-          CURRENT_SPEAKER_ID="${CURRENT_VOICE##*#}"
-        fi
-
         for onnx_file in "$VOICE_DIR"/*.onnx; do
           if [[ -f "$onnx_file" ]]; then
             voice=$(basename "$onnx_file" .onnx)
-            json_file="${onnx_file}.json"
-
-            # Check if this is a multi-speaker voice
-            if [[ -f "$json_file" ]] && command -v jq &> /dev/null; then
-              NUM_SPEAKERS=$(jq -r '.num_speakers // 1' "$json_file" 2>/dev/null)
-
-              if [[ "$NUM_SPEAKERS" -gt 1 ]]; then
-                # Multi-speaker voice - list all speakers
-                echo ""
-                echo "  📢 $voice (Multi-speaker: $NUM_SPEAKERS voices)"
-
-                # Read speaker names from JSON
-                jq -r '.speaker_id_map | to_entries[] | "    \(.value)️. \(.key) → \(.value|tostring)#\(.value)"' "$json_file" 2>/dev/null | while read -r speaker_line; do
-                  # Extract speaker ID from the line
-                  speaker_id=$(echo "$speaker_line" | sed -E 's/.*→ ([0-9]+)#[0-9]+$/\1/')
-
-                  # Check if this speaker is current
-                  if [[ "$voice" == "$CURRENT_BASE_VOICE" ]] && [[ "$speaker_id" == "$CURRENT_SPEAKER_ID" ]]; then
-                    # Remove the → ID#ID suffix and add current marker
-                    speaker_display=$(echo "$speaker_line" | sed -E 's/ → [0-9]+#[0-9]+$//')
-                    echo "  ▶ $speaker_display (current)"
-                  else
-                    # Remove the → ID#ID suffix
-                    speaker_display=$(echo "$speaker_line" | sed -E 's/ → [0-9]+#[0-9]+$//')
-                    echo "  $speaker_display"
-                  fi
-                done
-              else
-                # Single-speaker voice
-                if [ "$voice" = "$CURRENT_VOICE" ] || [ "$voice" = "$CURRENT_BASE_VOICE" ]; then
-                  echo "  ▶ $voice (current)"
-                else
-                  echo "    $voice"
-                fi
-              fi
+            if [ "$voice" = "$CURRENT_VOICE" ]; then
+              echo "  ▶ $voice (current)"
             else
-              # No JSON file or jq not available - show as single voice
-              if [ "$voice" = "$CURRENT_VOICE" ] || [ "$voice" = "$CURRENT_BASE_VOICE" ]; then
-                echo "  ▶ $voice (current)"
-              else
-                echo "    $voice"
-              fi
+              echo "    $voice"
             fi
             ((VOICE_COUNT++))
           fi
-        done
+        done | sort
 
         if [[ $VOICE_COUNT -eq 0 ]]; then
           echo "  (No Piper voices downloaded yet)"

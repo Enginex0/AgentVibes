@@ -75,8 +75,8 @@ else
 
   if [[ -n "$VOICE_FILE" ]]; then
     FILE_VOICE=$(cat "$VOICE_FILE" 2>/dev/null)
-    # Check if it's a Piper model name (contains underscore and dash, or speaker ID with #)
-    if [[ "$FILE_VOICE" == *"_"*"-"* ]] || [[ "$FILE_VOICE" == *"#"* ]]; then
+    # Check if it's a Piper model name (contains underscore and dash)
+    if [[ "$FILE_VOICE" == *"_"*"-"* ]]; then
       VOICE_MODEL="$FILE_VOICE"
     fi
   fi
@@ -118,21 +118,7 @@ fi
 # @param Uses global: $VOICE_MODEL
 # @sideeffects Downloads voice model files
 # @edgecases Prompts user for consent before downloading
-
-# Strip speaker ID for verification/download (speaker ID is after #)
-VOICE_MODEL_BASE="$VOICE_MODEL"
-if [[ "$VOICE_MODEL" == *"#"* ]]; then
-  VOICE_MODEL_BASE="${VOICE_MODEL%%#*}"
-fi
-
-# Check if custom voice exists (bypass verification for custom voices)
-CUSTOM_VOICE_PATH="$HOME/.local/share/piper/voices/$VOICE_MODEL_BASE.onnx"
-IS_CUSTOM_VOICE=false
-if [[ -f "$CUSTOM_VOICE_PATH" ]]; then
-  IS_CUSTOM_VOICE=true
-fi
-
-if [[ "$IS_CUSTOM_VOICE" == "false" ]] && ! verify_voice "$VOICE_MODEL_BASE"; then
+if ! verify_voice "$VOICE_MODEL"; then
   echo "📥 Voice model not found: $VOICE_MODEL"
   echo "   File size: ~25MB"
   echo "   Preview: https://huggingface.co/rhasspy/piper-voices"
@@ -141,7 +127,7 @@ if [[ "$IS_CUSTOM_VOICE" == "false" ]] && ! verify_voice "$VOICE_MODEL_BASE"; th
   echo
 
   if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if ! download_voice "$VOICE_MODEL_BASE"; then
+    if ! download_voice "$VOICE_MODEL"; then
       echo "❌ Failed to download voice model"
       echo "Fix: Download manually or choose different voice"
       exit 3
@@ -152,19 +138,11 @@ if [[ "$IS_CUSTOM_VOICE" == "false" ]] && ! verify_voice "$VOICE_MODEL_BASE"; th
   fi
 fi
 
-# Get voice model path (use base model without speaker ID)
-# Suppress stderr from get_voice_path since we have custom voice fallback
-VOICE_PATH=$(get_voice_path "$VOICE_MODEL_BASE" 2>/dev/null)
+# Get voice model path
+VOICE_PATH=$(get_voice_path "$VOICE_MODEL")
 if [[ $? -ne 0 ]]; then
-  # Try custom voice in piper voices directory
-  CUSTOM_PATH="$HOME/.local/share/piper/voices/$VOICE_MODEL_BASE.onnx"
-  if [[ -f "$CUSTOM_PATH" ]]; then
-    VOICE_PATH="$CUSTOM_PATH"
-    echo "🎤 Using custom voice: $VOICE_MODEL_BASE"
-  else
-    echo "❌ Voice model path not found: $VOICE_MODEL"
-    exit 3
-  fi
+  echo "❌ Voice model path not found: $VOICE_MODEL"
+  exit 3
 fi
 
 # @function determine_audio_directory
@@ -254,25 +232,12 @@ SPEECH_RATE=$(get_speech_rate)
 # @function synthesize_with_piper
 # @intent Generate speech using Piper TTS
 # @why Provides free, offline TTS alternative
-# @param Uses globals: $TEXT, $VOICE_PATH, $SPEECH_RATE, $VOICE_MODEL
+# @param Uses globals: $TEXT, $VOICE_PATH, $SPEECH_RATE
 # @returns Creates WAV file at $TEMP_FILE
 # @exitcode 0=success, 4=synthesis error
 # @sideeffects Creates audio file
-# @edgecases Handles piper errors, invalid models, speaker IDs
-
-# Check if voice model includes speaker ID (format: modelname#speakerID)
-SPEAKER_ID=""
-if [[ "$VOICE_MODEL" == *"#"* ]]; then
-  SPEAKER_ID="${VOICE_MODEL##*#}"
-  VOICE_MODEL="${VOICE_MODEL%%#*}"
-fi
-
-# Build piper command with optional speaker parameter
-if [[ -n "$SPEAKER_ID" ]]; then
-  echo "$TEXT" | piper --model "$VOICE_PATH" --speaker "$SPEAKER_ID" --length-scale "$SPEECH_RATE" --output_file "$TEMP_FILE" 2>/dev/null
-else
-  echo "$TEXT" | piper --model "$VOICE_PATH" --length-scale "$SPEECH_RATE" --output_file "$TEMP_FILE" 2>/dev/null
-fi
+# @edgecases Handles piper errors, invalid models
+echo "$TEXT" | piper --model "$VOICE_PATH" --length-scale "$SPEECH_RATE" --output_file "$TEMP_FILE" 2>/dev/null
 
 if [[ ! -f "$TEMP_FILE" ]] || [[ ! -s "$TEMP_FILE" ]]; then
   echo "❌ Failed to synthesize speech with Piper"

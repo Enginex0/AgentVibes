@@ -311,8 +311,6 @@ AgentVibes supports **custom personalities**, **custom voices**, and **integrati
 - 🗣️ **[OpenWhisper (Azure)](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/whisper-overview)** - Microsoft's speech-to-text service
 - 🎙️ **[ElevenLabs](https://elevenlabs.io/)** - Premium AI voice synthesis
 - 🆓 **[Piper TTS](https://github.com/rhasspy/piper)** - Free offline neural TTS
-- 🎨 **[Custom Piper Voices by Bryce Beattie](https://brycebeattie.com/files/tts/)** - High-quality community Piper voices (Kristin, Jenny)
-- 🛠️ **[Create Custom Piper TTS Voice](https://ssamjh.nz/create-custom-piper-tts-voice/)** - Tutorial for training your own Piper voices
 - 🤖 **[Claude Code](https://claude.com/claude-code)** - AI coding assistant
 - 🎭 **[BMAD METHOD](https://github.com/bmad-code-org/BMAD-METHOD)** - Multi-agent framework
 
@@ -420,7 +418,6 @@ npm update -g agentvibes && agentvibes update --yes
 **Special Thanks:**
 - 💡 [Claude Code Hooks Mastery](https://github.com/disler/claude-code-hooks-mastery) by [@disler](https://github.com/disler) - Hooks inspiration
 - 🤖 [BMAD METHOD](https://github.com/bmad-code-org/BMAD-METHOD) - Multi-agent framework with auto voice switching integration
-- 🎨 [Bryce Beattie](https://brycebeattie.com/files/tts/) - Custom high-quality Piper voices (Kristin, Jenny)
 
 [↑ Back to top](#-table-of-contents)
 
