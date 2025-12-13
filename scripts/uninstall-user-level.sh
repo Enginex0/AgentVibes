@@ -192,7 +192,7 @@ if [[ -d "$HOOKS_DIR" ]]; then
   for hook in "${AGENTVIBES_HOOKS[@]}"; do
     if [[ -f "$HOOKS_DIR/$hook" ]]; then
       rm -f "$HOOKS_DIR/$hook"
-      ((HOOKS_REMOVED++))
+      HOOKS_REMOVED=$((HOOKS_REMOVED + 1))
     fi
   done
   echo "  Removed $HOOKS_REMOVED AgentVibes hook files"
