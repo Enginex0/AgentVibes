@@ -40,6 +40,8 @@
 # @related play-tts.sh, play-tts-elevenlabs.sh, play-tts-piper.sh, provider-commands.sh
 #
 
+set -euo pipefail
+
 # @function get_provider_config_path
 # @intent Determine path to tts-provider.txt file
 # @why Supports both project-local (.claude/) and global (~/.claude/) storage
@@ -89,7 +91,7 @@ get_active_provider() {
   # Read provider from file, default to piper if not found
   if [[ -f "$provider_file" ]]; then
     local provider
-    provider=$(cat "$provider_file" | tr -d '[:space:]')
+    provider=$(tr -d '[:space:]' < "$provider_file")
     if [[ -n "$provider" ]]; then
       echo "$provider"
       return 0
@@ -147,7 +149,7 @@ set_active_provider() {
   local current_voice=""
   if [[ -f "$voice_file" ]]; then
     # Strip only leading/trailing whitespace and newlines, preserve internal spaces
-    current_voice=$(cat "$voice_file" | tr -d '\n\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    current_voice=$(tr -d '\n\r' < "$voice_file" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
   fi
 
   local new_voice

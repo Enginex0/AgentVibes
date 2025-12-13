@@ -8,6 +8,8 @@
 # adds to the conversation context at session start.
 #
 
+set -euo pipefail
+
 # Fix locale warnings
 export LC_ALL=C
 

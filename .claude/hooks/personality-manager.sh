@@ -34,6 +34,8 @@
 # @patterns Template-based configuration, provider abstraction, random personality support
 # @related .claude/personalities/*.md, voice-manager.sh, .claude/tts-personality.txt
 
+set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PERSONALITIES_DIR="$SCRIPT_DIR/../personalities"
 

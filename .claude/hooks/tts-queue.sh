@@ -40,7 +40,14 @@ add_to_queue() {
   local agent="${3:-default}"
 
   # Create unique queue item with timestamp
-  local timestamp=$(date +%s%N)
+  # Portable timestamp: macOS doesn't support %N (nanoseconds)
+  local timestamp
+  if date +%N >/dev/null 2>&1; then
+    timestamp=$(date +%s%N)
+  else
+    # macOS fallback: use seconds + random 6 digits for uniqueness
+    timestamp=$(date +%s)$(printf '%06d' $((RANDOM % 1000000)))
+  fi
   local queue_file="$QUEUE_DIR/$timestamp.queue"
 
   # Write request to queue file (base64 encoded to handle all special chars)

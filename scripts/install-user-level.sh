@@ -101,20 +101,23 @@ if [[ -f "$AGGREGATOR_CONFIG" ]]; then
       echo "  AgentVibes already configured in aggregator"
       MCP_CONFIGURED=true
     else
-      # Add agentvibes to aggregator config
+      # Add agentvibes to aggregator config with flock to prevent race conditions
       TEMP_CONFIG=$(mktemp)
-      jq --arg mcp "$MCP_SERVER" '.servers.agentvibes = {
-        "command": "node",
-        "args": [$mcp],
-        "env": {}
-      }' "$AGGREGATOR_CONFIG" > "$TEMP_CONFIG" && mv "$TEMP_CONFIG" "$AGGREGATOR_CONFIG"
-
-      if [[ $? -eq 0 ]]; then
+      # Use flock to serialize concurrent config modifications
+      if (
+        flock -x -w 10 200 || { echo "  Warning: Could not acquire config lock" >&2; exit 1; }
+        jq --arg mcp "$MCP_SERVER" '.servers.agentvibes = {
+          "command": "node",
+          "args": [$mcp],
+          "env": {}
+        }' "$AGGREGATOR_CONFIG" > "$TEMP_CONFIG" && mv "$TEMP_CONFIG" "$AGGREGATOR_CONFIG"
+      ) 200>"$AGGREGATOR_CONFIG.lock"; then
         echo "  Added AgentVibes to aggregator config"
         echo "  NOTE: Reload aggregator in Claude to activate (use reload_config tool)"
         MCP_CONFIGURED=true
       else
         echo "  Warning: Failed to update aggregator config"
+        rm -f "$TEMP_CONFIG" 2>/dev/null
       fi
     fi
   else

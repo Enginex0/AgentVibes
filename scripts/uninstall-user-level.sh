@@ -8,7 +8,7 @@
 # Run automatically via npm preuninstall or manually: bash scripts/uninstall-user-level.sh
 #
 
-set -uo pipefail
+set -euo pipefail
 
 USER_CLAUDE="$HOME/.claude"
 AGGREGATOR_CONFIG="$USER_CLAUDE/mcp-aggregator/config.json"

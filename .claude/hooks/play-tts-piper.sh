@@ -35,6 +35,8 @@
 # @related play-tts.sh, piper-voice-manager.sh, language-manager.sh, GitHub Issue #25
 #
 
+set -euo pipefail
+
 # Fix locale warnings
 export LC_ALL=C
 
@@ -150,8 +152,17 @@ if ! verify_voice "$VOICE_MODEL"; then
   echo "   File size: ~25MB"
   echo "   Preview: https://huggingface.co/rhasspy/piper-voices"
   echo ""
-  read -p "   Download this voice model? [y/N]: " -n 1 -r
-  echo
+
+  # Handle non-interactive mode (CI/automation) - auto-download
+  if [[ -t 0 ]]; then
+    # Interactive: prompt with timeout
+    read -t 30 -p "   Download this voice model? [y/N]: " -n 1 -r || REPLY=""
+    echo
+  else
+    # Non-interactive: auto-download
+    echo "   Non-interactive mode: Auto-downloading voice model..."
+    REPLY="y"
+  fi
 
   if [[ $REPLY =~ ^[Yy]$ ]]; then
     if ! download_voice "$VOICE_MODEL"; then
@@ -160,7 +171,7 @@ if ! verify_voice "$VOICE_MODEL"; then
       exit 3
     fi
   else
-    echo "❌ Voice download cancelled"
+    echo "❌ Voice download cancelled (or timeout)"
     exit 3
   fi
 fi
@@ -291,18 +302,22 @@ if [[ "$daemon_running" == "true" ]] && [[ -p "$DAEMON_FIFO" ]]; then
   ESCAPED_TEXT="${TEXT//\\/\\\\}"
   ESCAPED_TEXT="${ESCAPED_TEXT//\"/\\\"}"
 
-  # Generate unique temp file for this message
-  TEMP_MSG="$HOME/.claude/piper-daemon/msg-$(date +%s%N).json"
+  # Security: Use mktemp for unpredictable filename (prevents symlink attacks)
+  TEMP_MSG=$(mktemp "$HOME/.claude/piper-daemon/msg-XXXXXX.json")
 
   # Write JSON to temp file first (no line length limits)
   printf '{"text":"%s"}' "$ESCAPED_TEXT" > "$TEMP_MSG"
 
-  # Send only the filename via FIFO (always short, under LINE_MAX)
-  echo "$TEMP_MSG" > "$DAEMON_FIFO"
-
-  echo "⚡ Daemon TTS (instant)"
-  echo "🎤 Voice: $VOICE_MODEL (Piper daemon)"
-  exit 0
+  # Send filename via FIFO with timeout (prevents blocking forever if FIFO is full)
+  if timeout 5 bash -c "echo '$TEMP_MSG' > '$DAEMON_FIFO'" 2>/dev/null; then
+    echo "⚡ Daemon TTS (instant)"
+    echo "🎤 Voice: $VOICE_MODEL (Piper daemon)"
+    exit 0
+  else
+    # Timeout or error - clean up temp file and fall through to direct synthesis
+    rm -f "$TEMP_MSG" 2>/dev/null
+    echo "Warning: Daemon FIFO timeout, falling back to direct synthesis" >&2
+  fi
 fi
 
 # Daemon not running - fall back to regular synthesis

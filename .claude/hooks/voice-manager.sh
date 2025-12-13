@@ -34,6 +34,8 @@
 # @patterns Provider abstraction, numbered selection UI, silent mode for programmatic switching
 # @related voices-config.sh, piper-voice-manager.sh, .claude/tts-voice.txt, .claude/audio/ (replay)
 
+set -euo pipefail
+
 # Get script directory (physical path for sourcing files)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 source "$SCRIPT_DIR/voices-config.sh"

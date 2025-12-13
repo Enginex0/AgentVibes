@@ -201,13 +201,11 @@ process_tts() {
     [[ -n "$found" ]] && background="$found"
   fi
 
-  # Generate temp files
-  local ts=$(date +%s%N)
-  local raw_wav="$AUDIO_DIR/daemon-raw-${ts}.wav"
-  local reverb_wav="$AUDIO_DIR/daemon-reverb-${ts}.wav"
-  local final_wav="$AUDIO_DIR/daemon-final-${ts}.wav"
-
+  # Security: Use mktemp for unpredictable filenames (prevents symlink attacks)
   mkdir -p "$AUDIO_DIR"
+  local raw_wav=$(mktemp "$AUDIO_DIR/daemon-raw-XXXXXX.wav")
+  local reverb_wav=$(mktemp "$AUDIO_DIR/daemon-reverb-XXXXXX.wav")
+  local final_wav=$(mktemp "$AUDIO_DIR/daemon-final-XXXXXX.wav")
 
   # Step 1: Generate speech with piper (model is warm = fast)
   echo "$text" | piper --model "$MODEL" --output_file "$raw_wav" 2>/dev/null
@@ -275,10 +273,21 @@ trap cleanup SIGTERM SIGINT SIGHUP
 # Setup
 mkdir -p "$DAEMON_DIR" "$AUDIO_DIR"
 
-# Create FIFO if needed (with restrictive permissions - owner only)
-if [[ ! -p "$FIFO_IN" ]]; then
-  rm -f "$FIFO_IN"
-  mkfifo -m 600 "$FIFO_IN"
+# Security: Create FIFO atomically with ownership verification (prevents TOCTOU race)
+# Remove any existing file first, then create fresh FIFO
+rm -f "$FIFO_IN" 2>/dev/null
+if ! mkfifo -m 600 "$FIFO_IN" 2>/dev/null; then
+  # mkfifo failed - could be a race condition where file was recreated
+  # Verify it's a FIFO owned by us before proceeding
+  if [[ ! -p "$FIFO_IN" ]]; then
+    echo "ERROR: Cannot create FIFO: $FIFO_IN" >&2
+    exit 1
+  fi
+  # Verify ownership
+  if [[ "$(stat -c '%u' "$FIFO_IN" 2>/dev/null)" != "$(id -u)" ]]; then
+    echo "ERROR: FIFO not owned by current user (possible attack): $FIFO_IN" >&2
+    exit 1
+  fi
 fi
 
 # Get model path

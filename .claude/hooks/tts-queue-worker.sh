@@ -79,13 +79,30 @@ process_queue() {
     # Reset idle counter - we have work
     idle_count=0
 
-    # Load TTS request
-    source "$queue_item"
+    # Security: Parse queue file safely instead of sourcing (prevents code injection)
+    # Queue files contain KEY=VALUE pairs, one per line
+    TEXT_B64=$(grep '^TEXT_B64=' "$queue_item" 2>/dev/null | head -1 | cut -d= -f2-)
+    VOICE_B64=$(grep '^VOICE_B64=' "$queue_item" 2>/dev/null | head -1 | cut -d= -f2-)
+    AGENT_B64=$(grep '^AGENT_B64=' "$queue_item" 2>/dev/null | head -1 | cut -d= -f2-)
+
+    # Validate we got the required fields
+    if [[ -z "$TEXT_B64" ]]; then
+      echo "Warning: Invalid queue file (missing TEXT_B64): $queue_item" >&2
+      rm -f "$queue_item"
+      continue
+    fi
 
     # Decode base64 values
-    TEXT=$(echo -n "$TEXT_B64" | base64 -d)
-    VOICE=$(echo -n "$VOICE_B64" | base64 -d)
-    AGENT=$(echo -n "${AGENT_B64:-}" | base64 -d 2>/dev/null || echo "default")
+    TEXT=$(echo -n "$TEXT_B64" | base64 -d 2>/dev/null) || TEXT=""
+    VOICE=$(echo -n "$VOICE_B64" | base64 -d 2>/dev/null) || VOICE=""
+    AGENT=$(echo -n "${AGENT_B64:-}" | base64 -d 2>/dev/null) || AGENT="default"
+
+    # Validate decoded text is not empty
+    if [[ -z "$TEXT" ]]; then
+      echo "Warning: Empty text after decode: $queue_item" >&2
+      rm -f "$queue_item"
+      continue
+    fi
 
     # Use enhanced TTS with agent-specific background music if agent is specified
     # and background music is enabled

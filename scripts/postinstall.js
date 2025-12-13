@@ -16,6 +16,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
 
+// Track active child processes for cleanup
+let activeProcess = null;
+
+// Cleanup handler for interrupts
+function cleanup(signal) {
+  if (activeProcess && !activeProcess.killed) {
+    console.log(`\nReceived ${signal}, cleaning up...`);
+    activeProcess.kill('SIGTERM');
+  }
+  process.exit(signal === 'SIGINT' ? 130 : 143);
+}
+
+process.on('SIGINT', () => cleanup('SIGINT'));
+process.on('SIGTERM', () => cleanup('SIGTERM'));
+
 /**
  * Run a command and return a promise
  */
@@ -29,7 +44,11 @@ function runCommand(command, args, options = {}) {
       ...options
     });
 
+    // Track for cleanup
+    activeProcess = child;
+
     child.on('close', (code) => {
+      activeProcess = null;
       if (code === 0) {
         resolve();
       } else {
@@ -38,6 +57,7 @@ function runCommand(command, args, options = {}) {
     });
 
     child.on('error', (err) => {
+      activeProcess = null;
       reject(err);
     });
   });

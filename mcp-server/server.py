@@ -181,7 +181,7 @@ class AgentVibesServer:
                         try:
                             with open(bg_enabled_file, 'r') as f:
                                 bg_actually_enabled = f.read().strip().lower() == "true"
-                        except:
+                        except Exception:
                             pass
 
                     if payload.get("background") and bg_actually_enabled:
