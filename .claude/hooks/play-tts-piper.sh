@@ -65,15 +65,19 @@ if [[ -n "$VOICE_OVERRIDE" ]]; then
   VOICE_MODEL="$VOICE_OVERRIDE"
   echo "🎤 Using voice: $VOICE_OVERRIDE (session-specific)"
 else
-  # Try to get voice from voice file (check CLAUDE_PROJECT_DIR first for MCP context)
+  # Try to get voice from voice file
   VOICE_FILE=""
 
   # Priority order:
-  # 1. CLAUDE_PROJECT_DIR env var (set by MCP for project-specific settings)
-  # 2. Script location (for direct slash command usage)
-  # 3. Global ~/.claude (fallback)
+  # 1. User-level mode marker (single source of truth for all projects)
+  # 2. CLAUDE_PROJECT_DIR env var (set by MCP for project-specific settings)
+  # 3. Script location (for direct slash command usage)
+  # 4. Global ~/.claude (fallback)
 
-  if [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -f "$CLAUDE_PROJECT_DIR/.claude/tts-voice.txt" ]]; then
+  if [[ -f "$HOME/.claude/agentvibes-user-level" ]]; then
+    # User-level mode: Always use ~/.claude for settings (single source of truth)
+    VOICE_FILE="$HOME/.claude/tts-voice.txt"
+  elif [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -f "$CLAUDE_PROJECT_DIR/.claude/tts-voice.txt" ]]; then
     # MCP context: Use the project directory where MCP was invoked
     VOICE_FILE="$CLAUDE_PROJECT_DIR/.claude/tts-voice.txt"
   elif [[ -f "$SCRIPT_DIR/../tts-voice.txt" ]]; then
@@ -170,9 +174,12 @@ fi
 
 # @function determine_audio_directory
 # @intent Find appropriate directory for audio file storage
-# @why Supports project-local and global storage
+# @why Supports user-level, project-local, and global storage
 # @returns Sets $AUDIO_DIR global variable
-if [[ -n "$CLAUDE_PROJECT_DIR" ]]; then
+if [[ -f "$HOME/.claude/agentvibes-user-level" ]]; then
+  # User-level mode: Always use ~/.claude for audio (single source of truth)
+  AUDIO_DIR="$HOME/.claude/audio"
+elif [[ -n "$CLAUDE_PROJECT_DIR" ]]; then
   AUDIO_DIR="$CLAUDE_PROJECT_DIR/.claude/audio"
 else
   # Fallback: try to find .claude directory in current path
