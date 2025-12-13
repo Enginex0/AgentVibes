@@ -1,0 +1,31 @@
+[Unit]
+Description=Piper TTS Enhanced Daemon - Warm model with effects support
+After=pipewire.service pipewire-pulse.service wireplumber.service
+Wants=pipewire-pulse.service
+BindsTo=pipewire-pulse.service
+
+[Service]
+Type=simple
+ExecStartPre=/bin/bash -c 'systemctl --user is-active pipewire-pulse.service || systemctl --user start pipewire pipewire-pulse wireplumber'
+ExecStart=/home/president/.claude/scripts/piper-worker-enhanced.sh
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=2
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=HOME=/home/president
+
+# Watchdog disabled - bash scripts can't send sd_notify heartbeats
+WatchdogSec=0
+
+# Clean shutdown
+TimeoutStopSec=5
+KillMode=mixed
+KillSignal=SIGTERM
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=piper-tts
+
+[Install]
+WantedBy=default.target

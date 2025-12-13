@@ -28,7 +28,7 @@
 #
 # @fileoverview Personality Manager - Adds character and emotional style to TTS voices
 # @context Enables voices to have distinct personalities (flirty, sarcastic, pirate, etc.) with provider-aware voice assignment
-# @architecture Markdown-based personality templates with provider-specific voice mappings (Piper vs macOS)
+# @architecture Markdown-based personality templates with provider-specific voice mappings (ElevenLabs vs Piper)
 # @dependencies .claude/personalities/*.md files, voice-manager.sh, play-tts.sh, provider-manager.sh
 # @entrypoints Called by /agent-vibes:personality slash commands
 # @patterns Template-based configuration, provider abstraction, random personality support
@@ -83,7 +83,7 @@ get_personality_data() {
       grep "^description:" "$file" | cut -d: -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
       ;;
     voice)
-      grep "^piper_voice:" "$file" | cut -d: -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+      grep "^elevenlabs_voice:" "$file" | cut -d: -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
       ;;
     piper_voice)
       grep "^piper_voice:" "$file" | cut -d: -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
@@ -110,48 +110,38 @@ list_personalities() {
 
 case "$1" in
   list)
+    echo "🎭 Available Personalities:"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
     # Get current personality
     CURRENT="normal"
     if [ -f "$PERSONALITY_FILE" ]; then
       CURRENT=$(cat "$PERSONALITY_FILE")
     fi
 
-    # Use Node.js formatter for beautiful boxen display
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-    FORMATTER="$PROJECT_ROOT/src/cli/list-personalities.js"
-
-    # Use Node.js formatter if available
-    if [[ -f "$FORMATTER" ]] && command -v node &> /dev/null; then
-      node "$FORMATTER" "$PERSONALITIES_DIR" "$CURRENT"
-    else
-      # Fallback to plain text display
-      echo "🎭 Available Personalities:"
-      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-      echo "Built-in personalities:"
-      for personality in $(list_personalities | sort); do
-        desc=$(get_personality_data "$personality" "description")
-        if [[ "$personality" == "$CURRENT" ]]; then
-          echo "  ✓ $personality - $desc (current)"
-        else
-          echo "  - $personality - $desc"
-        fi
-      done
-
-      # Add random option
-      if [[ "$CURRENT" == "random" ]]; then
-        echo "  ✓ random - Picks randomly each time (current)"
+    # List personalities from markdown files
+    echo "Built-in personalities:"
+    for personality in $(list_personalities | sort); do
+      desc=$(get_personality_data "$personality" "description")
+      if [[ "$personality" == "$CURRENT" ]]; then
+        echo "  ✓ $personality - $desc (current)"
       else
-        echo "  - random - Picks randomly each time"
+        echo "  - $personality - $desc"
       fi
+    done
 
-      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      echo ""
-      echo "Usage: /agent-vibes:personality <name>"
-      echo "       /agent-vibes:personality add <name>"
-      echo "       /agent-vibes:personality edit <name>"
+    # Add random option
+    if [[ "$CURRENT" == "random" ]]; then
+      echo "  ✓ random - Picks randomly each time (current)"
+    else
+      echo "  - random - Picks randomly each time"
     fi
+
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "Usage: /agent-vibes:personality <name>"
+    echo "       /agent-vibes:personality add <name>"
+    echo "       /agent-vibes:personality edit <name>"
     ;;
 
   set|switch)
@@ -189,7 +179,7 @@ case "$1" in
       PROVIDER_FILE="$HOME/.claude/tts-provider.txt"
     fi
 
-    ACTIVE_PROVIDER="piper"  # default
+    ACTIVE_PROVIDER="elevenlabs"  # default
     if [[ -n "$PROVIDER_FILE" ]]; then
       ACTIVE_PROVIDER=$(cat "$PROVIDER_FILE")
     fi
@@ -204,7 +194,7 @@ case "$1" in
         ASSIGNED_VOICE="en_US-lessac-medium"
       fi
     else
-      # Use Piper voice (reads from piper_voice: field)
+      # Use ElevenLabs voice (reads from elevenlabs_voice: field)
       ASSIGNED_VOICE=$(get_personality_data "$PERSONALITY" "voice")
     fi
 
@@ -367,7 +357,7 @@ EOF
       PROVIDER_FILE="$HOME/.claude/tts-provider.txt"
     fi
 
-    ACTIVE_PROVIDER="piper"  # default
+    ACTIVE_PROVIDER="elevenlabs"  # default
     if [[ -n "$PROVIDER_FILE" ]]; then
       ACTIVE_PROVIDER=$(cat "$PROVIDER_FILE")
     fi
@@ -377,9 +367,8 @@ EOF
       VOICE_FIELD="piper_voice"
       CURRENT_VOICE=$(get_personality_data "$PERSONALITY" "piper_voice")
     else
-      # macOS or other provider
-      VOICE_FIELD="macos_voice"
-      CURRENT_VOICE=$(get_personality_data "$PERSONALITY" "macos_voice")
+      VOICE_FIELD="elevenlabs_voice"
+      CURRENT_VOICE=$(get_personality_data "$PERSONALITY" "voice")
     fi
 
     # Check if personality already has a favorite voice assigned

@@ -140,8 +140,8 @@ fi
 # @why Provide seamless experience with automatic downloads
 # @param Uses global: $VOICE_MODEL
 # @sideeffects Downloads voice model files
-# @edgecases Prompts user for consent before downloading, skipped in test mode
-if [[ "${AGENTVIBES_TEST_MODE:-false}" != "true" ]] && ! verify_voice "$VOICE_MODEL"; then
+# @edgecases Prompts user for consent before downloading
+if ! verify_voice "$VOICE_MODEL"; then
   echo "📥 Voice model not found: $VOICE_MODEL"
   echo "   File size: ~25MB"
   echo "   Preview: https://huggingface.co/rhasspy/piper-voices"
@@ -162,15 +162,10 @@ if [[ "${AGENTVIBES_TEST_MODE:-false}" != "true" ]] && ! verify_voice "$VOICE_MO
 fi
 
 # Get voice model path
-# In test mode, use a fake path since we have mock piper that doesn't need real files
-if [[ "${AGENTVIBES_TEST_MODE:-false}" == "true" ]]; then
-  VOICE_PATH="/tmp/mock-voice-${VOICE_MODEL}.onnx"
-else
-  VOICE_PATH=$(get_voice_path "$VOICE_MODEL")
-  if [[ $? -ne 0 ]]; then
-    echo "❌ Voice model path not found: $VOICE_MODEL"
-    exit 3
-  fi
+VOICE_PATH=$(get_voice_path "$VOICE_MODEL")
+if [[ $? -ne 0 ]]; then
+  echo "❌ Voice model path not found: $VOICE_MODEL"
+  exit 3
 fi
 
 # @function determine_audio_directory
@@ -257,6 +252,53 @@ get_speech_rate() {
 
 SPEECH_RATE=$(get_speech_rate)
 
+# @function ensure_audio_stack_healthy
+# @intent Ensure PipeWire audio stack is running before TTS
+# @why PipeWire-pulse can die randomly, causing audio to hang
+ensure_audio_stack() {
+  if ! systemctl --user is-active --quiet pipewire-pulse 2>/dev/null; then
+    systemctl --user restart pipewire pipewire-pulse wireplumber 2>/dev/null
+    sleep 1
+  fi
+}
+
+# Ensure audio stack is healthy before any TTS
+ensure_audio_stack
+
+# @function check_and_use_daemon
+# @intent Use piper-daemon if running for faster TTS
+# @why Daemon keeps model warm, reducing latency from ~1.5s to ~0.002s
+DAEMON_FIFO="$HOME/.claude/piper-daemon/input.fifo"
+
+# Check for systemd service first (preferred), fallback to PID file (legacy)
+daemon_running=false
+if systemctl --user is-active --quiet piper-tts 2>/dev/null; then
+  daemon_running=true
+elif [[ -f "$HOME/.claude/piper-daemon/piper.pid" ]] && kill -0 "$(cat "$HOME/.claude/piper-daemon/piper.pid")" 2>/dev/null; then
+  daemon_running=true
+fi
+
+if [[ "$daemon_running" == "true" ]] && [[ -p "$DAEMON_FIFO" ]]; then
+  # Daemon is running - use it for instant TTS
+  # Use temp file indirection to bypass bash LINE_MAX (2048 byte) limit
+  ESCAPED_TEXT="${TEXT//\\/\\\\}"
+  ESCAPED_TEXT="${ESCAPED_TEXT//\"/\\\"}"
+
+  # Generate unique temp file for this message
+  TEMP_MSG="$HOME/.claude/piper-daemon/msg-$(date +%s%N).json"
+
+  # Write JSON to temp file first (no line length limits)
+  printf '{"text":"%s"}' "$ESCAPED_TEXT" > "$TEMP_MSG"
+
+  # Send only the filename via FIFO (always short, under LINE_MAX)
+  echo "$TEMP_MSG" > "$DAEMON_FIFO"
+
+  echo "⚡ Daemon TTS (instant)"
+  echo "🎤 Voice: $VOICE_MODEL (Piper daemon)"
+  exit 0
+fi
+
+# Daemon not running - fall back to regular synthesis
 # @function synthesize_with_piper
 # @intent Generate speech using Piper TTS
 # @why Provides free, offline TTS alternative
@@ -267,12 +309,10 @@ SPEECH_RATE=$(get_speech_rate)
 # @edgecases Handles piper errors, invalid models, multi-speaker voices
 if [[ -n "$SPEAKER_ID" ]]; then
   # Multi-speaker voice: Pass speaker ID
-  # Add 2-second pause between sentences for better pacing
-  echo "$TEXT" | piper --model "$VOICE_PATH" --speaker "$SPEAKER_ID" --length-scale "$SPEECH_RATE" --sentence-silence 2.0 --output_file "$TEMP_FILE" 2>/dev/null
+  echo "$TEXT" | piper --model "$VOICE_PATH" --speaker "$SPEAKER_ID" --length-scale "$SPEECH_RATE" --output_file "$TEMP_FILE" 2>/dev/null
 else
   # Single-speaker voice
-  # Add 2-second pause between sentences for better pacing
-  echo "$TEXT" | piper --model "$VOICE_PATH" --length-scale "$SPEECH_RATE" --sentence-silence 2.0 --output_file "$TEMP_FILE" 2>/dev/null
+  echo "$TEXT" | piper --model "$VOICE_PATH" --length-scale "$SPEECH_RATE" --output_file "$TEMP_FILE" 2>/dev/null
 fi
 
 if [[ ! -f "$TEMP_FILE" ]] || [[ ! -s "$TEMP_FILE" ]]; then
@@ -282,36 +322,6 @@ if [[ ! -f "$TEMP_FILE" ]] || [[ ! -s "$TEMP_FILE" ]]; then
   exit 4
 fi
 
-# @function detect_remote_session
-# @intent Auto-detect SSH/RDP sessions and enable audio compression
-# @why Remote desktop audio is choppy without compression
-# @returns Sets AGENTVIBES_RDP_MODE environment variable
-# @detection Checks SSH_CLIENT, SSH_TTY, and DISPLAY variables
-if [[ -z "${AGENTVIBES_RDP_MODE:-}" ]]; then
-  # Auto-detect remote session
-  if [[ -n "${SSH_CLIENT:-}" ]] || [[ -n "${SSH_TTY:-}" ]] || [[ "${DISPLAY:-}" =~ ^localhost:.* ]]; then
-    export AGENTVIBES_RDP_MODE=true
-    echo "🌐 Remote session detected - enabling audio compression"
-  fi
-fi
-
-# @function compress_for_remote
-# @intent Compress TTS audio for remote sessions (SSH/RDP)
-# @why Reduces bandwidth and prevents choppy playback
-# @param Uses global: $TEMP_FILE, $AGENTVIBES_RDP_MODE
-# @returns Updates $TEMP_FILE to compressed version
-# @sideeffects Converts to mono 22kHz for lower bandwidth
-if [[ "${AGENTVIBES_RDP_MODE:-false}" == "true" ]] && command -v ffmpeg &> /dev/null; then
-  COMPRESSED_FILE="$AUDIO_DIR/tts-compressed-$(date +%s).wav"
-  # Convert to mono, 22kHz, 64kbps for remote sessions
-  ffmpeg -i "$TEMP_FILE" -ac 1 -ar 22050 -b:a 64k -y "$COMPRESSED_FILE" 2>/dev/null
-
-  if [[ -f "$COMPRESSED_FILE" ]]; then
-    rm -f "$TEMP_FILE"
-    TEMP_FILE="$COMPRESSED_FILE"
-  fi
-fi
-
 # @function add_silence_padding
 # @intent Add silence to prevent WSL audio static
 # @why WSL audio subsystem cuts off first ~200ms
@@ -319,7 +329,12 @@ fi
 # @returns Updates $TEMP_FILE to padded version
 # @sideeffects Modifies audio file
 # AI NOTE: Use ffmpeg if available, otherwise skip padding (degraded experience)
-if command -v ffmpeg &> /dev/null; then
+# Skip padding if disabled via config (for native Linux where it's not needed)
+SKIP_PADDING_FILE="$HOME/.claude/tts-skip-padding.txt"
+if [[ -f "$SKIP_PADDING_FILE" ]] && [[ "$(cat "$SKIP_PADDING_FILE" 2>/dev/null)" == "true" ]]; then
+  # Padding disabled - native Linux doesn't need it
+  :
+elif command -v ffmpeg &> /dev/null; then
   PADDED_FILE="$AUDIO_DIR/tts-padded-$(date +%s).wav"
   # Add 200ms of silence at the beginning
   ffmpeg -f lavfi -i anullsrc=r=44100:cl=stereo:d=0.2 -i "$TEMP_FILE" \
@@ -332,31 +347,6 @@ if command -v ffmpeg &> /dev/null; then
   fi
 fi
 
-# @function apply_audio_effects
-# @intent Apply sox effects and background music via audio-processor.sh
-# @param Uses global: $TEMP_FILE
-# @returns Updates $TEMP_FILE to processed version, sets $BACKGROUND_MUSIC if used
-# @sideeffects Applies audio effects and background music
-BACKGROUND_MUSIC=""
-if [[ -f "$SCRIPT_DIR/audio-processor.sh" ]]; then
-  PROCESSED_FILE="$AUDIO_DIR/tts-processed-$(date +%s).wav"
-  # audio-processor.sh returns: FILE_PATH|BACKGROUND_FILE
-  PROCESSOR_OUTPUT=$("$SCRIPT_DIR/audio-processor.sh" "$TEMP_FILE" "default" "$PROCESSED_FILE" 2>/dev/null) || {
-    echo "Warning: Audio processing failed, using unprocessed audio" >&2
-    PROCESSED_FILE="$TEMP_FILE"
-    PROCESSOR_OUTPUT="$TEMP_FILE|"
-  }
-
-  # Parse output: FILE|BACKGROUND
-  PROCESSED_FILE="${PROCESSOR_OUTPUT%%|*}"
-  BACKGROUND_MUSIC="${PROCESSOR_OUTPUT##*|}"
-
-  if [[ -f "$PROCESSED_FILE" ]] && [[ "$PROCESSED_FILE" != "$TEMP_FILE" ]]; then
-    rm -f "$TEMP_FILE"
-    TEMP_FILE="$PROCESSED_FILE"
-  fi
-fi
-
 # @function play_audio
 # @intent Play generated audio using available player with sequential playback
 # @why Support multiple audio players and prevent overlapping audio in learning mode
@@ -364,19 +354,13 @@ fi
 # @sideeffects Plays audio with lock mechanism for sequential playback
 LOCK_FILE="/tmp/agentvibes-audio.lock"
 
-# Wait for previous audio to finish (max 2 seconds to prevent blocking)
-for i in {1..4}; do
+# Wait for previous audio to finish (max 30 seconds)
+for i in {1..60}; do
   if [ ! -f "$LOCK_FILE" ]; then
     break
   fi
   sleep 0.5
 done
-
-# If still locked after 2 seconds, skip this TTS to prevent blocking Claude
-if [ -f "$LOCK_FILE" ]; then
-  echo "⏭️  Skipping TTS (previous audio still playing)" >&2
-  exit 0
-fi
 
 # Track last target language audio for replay command
 if [[ "$CURRENT_LANGUAGE" != "english" ]]; then
@@ -392,51 +376,35 @@ DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wr
 DURATION=${DURATION%.*}  # Round to integer
 DURATION=${DURATION:-1}   # Default to 1 second if detection fails
 
-# Play audio in background (skip if in test mode or no-playback mode)
-# AGENTVIBES_NO_PLAYBACK: Set to "true" to generate audio without playing (for post-processing)
-if [[ "${AGENTVIBES_TEST_MODE:-false}" != "true" ]] && [[ "${AGENTVIBES_NO_PLAYBACK:-false}" != "true" ]]; then
+# Play audio in background (skip if in test mode)
+if [[ "${AGENTVIBES_TEST_MODE:-false}" != "true" ]]; then
   # Detect platform and use appropriate audio player
   if [[ "$(uname -s)" == "Darwin" ]]; then
     # macOS: Use afplay (native macOS audio player)
     afplay "$TEMP_FILE" >/dev/null 2>&1 &
     PLAYER_PID=$!
   else
-    # Linux/WSL: Prefer paplay (PulseAudio) for best WSL audio quality
-    (paplay "$TEMP_FILE" || mpv "$TEMP_FILE" || aplay "$TEMP_FILE") >/dev/null 2>&1 &
+    # Linux/WSL: Try mpv, aplay, or paplay
+    (mpv "$TEMP_FILE" || aplay "$TEMP_FILE" || paplay "$TEMP_FILE") >/dev/null 2>&1 &
     PLAYER_PID=$!
   fi
 fi
 
-# Wait for audio to finish, then release lock
-(sleep $DURATION; rm -f "$LOCK_FILE") &
+# Check if audio saving is enabled (default: false = delete after playback)
+SAVE_AUDIO_FILE="$HOME/.claude/config/tts-save-audio.txt"
+SAVE_AUDIO="false"
+if [[ -f "$SAVE_AUDIO_FILE" ]] && [[ "$(cat "$SAVE_AUDIO_FILE" 2>/dev/null)" == "true" ]]; then
+  SAVE_AUDIO="true"
+fi
+
+# Wait for audio to finish, then release lock and optionally cleanup
+if [[ "$SAVE_AUDIO" == "true" ]]; then
+  (sleep $DURATION; rm -f "$LOCK_FILE") &
+  echo "🎵 Saved to: $TEMP_FILE"
+else
+  (sleep $DURATION; rm -f "$LOCK_FILE" "$TEMP_FILE") &
+  echo "🎵 Audio played (not saved)"
+fi
 disown
 
-echo "🎵 Saved to: $TEMP_FILE"
-if [[ -n "$BACKGROUND_MUSIC" ]]; then
-  echo "🎶 Background music: $BACKGROUND_MUSIC"
-fi
 echo "🎤 Voice used: $VOICE_MODEL (Piper TTS)"
-
-# Show status indicators
-GLOBAL_MUTE_FILE="$HOME/.agentvibes-muted"
-PROJECT_MUTE_FILE="$PROJECT_ROOT/.claude/agentvibes-muted"
-PROJECT_UNMUTE_FILE="$PROJECT_ROOT/.claude/agentvibes-unmuted"
-BACKGROUND_ENABLED_FILE="$PROJECT_ROOT/.claude/config/background-music-enabled.txt"
-
-# Mute status indicator
-if [[ -f "$PROJECT_UNMUTE_FILE" ]] && [[ -f "$GLOBAL_MUTE_FILE" ]]; then
-  echo "🔊 Status: Unmuted (project overrides global mute)"
-elif [[ -f "$PROJECT_MUTE_FILE" ]]; then
-  echo "🔇 Status: Muted (project)"
-elif [[ -f "$GLOBAL_MUTE_FILE" ]]; then
-  echo "🔇 Status: Would be muted (global) - but this project is speaking"
-fi
-
-# Background music status indicator
-if [[ -z "$BACKGROUND_MUSIC" ]]; then
-  if [[ -f "$BACKGROUND_ENABLED_FILE" ]] && grep -q "true" "$BACKGROUND_ENABLED_FILE" 2>/dev/null; then
-    echo "🎵 Background music: Enabled but not playing (check config)"
-  else
-    echo "🎵 Background music: Disabled"
-  fi
-fi

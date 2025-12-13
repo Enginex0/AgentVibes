@@ -113,6 +113,89 @@ class AgentVibesServer:
         original_language = None
 
         try:
+            # ENHANCED DAEMON PATH: Send JSON with effects info
+            daemon_fifo = os.path.expanduser("~/.claude/piper-daemon/input.fifo")
+
+            # Check if daemon is running via systemd
+            import subprocess as sp
+            daemon_running = False
+            try:
+                # Set required env vars for systemctl --user
+                env = os.environ.copy()
+                env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
+                result = sp.run(
+                    ["systemctl", "--user", "is-active", "--quiet", "piper-tts"],
+                    capture_output=True, timeout=1, env=env
+                )
+                daemon_running = (result.returncode == 0)
+            except Exception:
+                pass
+
+            if daemon_running and os.path.exists(daemon_fifo):
+                try:
+                    import json
+                    # Build JSON payload with effects from config
+                    payload = {"text": text}
+
+                    # Add reverb if configured
+                    effects_cfg = os.path.expanduser("~/.claude/config/audio-effects.cfg")
+                    if os.path.exists(effects_cfg):
+                        with open(effects_cfg, 'r') as f:
+                            for line in f:
+                                if line.startswith("default|"):
+                                    parts = line.strip().split("|")
+                                    if len(parts) >= 2 and "reverb" in parts[1]:
+                                        if "reverb 70" in parts[1]:
+                                            payload["reverb"] = "heavy"
+                                        elif "reverb 40" in parts[1]:
+                                            payload["reverb"] = "medium"
+                                        elif "reverb 20" in parts[1]:
+                                            payload["reverb"] = "light"
+                                        elif "reverb 90" in parts[1]:
+                                            payload["reverb"] = "cathedral"
+                                    if len(parts) >= 3 and parts[2]:
+                                        payload["background"] = parts[2]
+                                    if len(parts) >= 4 and parts[3]:
+                                        payload["volume"] = parts[3]
+                                    break
+
+                    # Use temp file indirection to bypass LINE_MAX (2048 byte) limit
+                    # Same technique as bash daemon: write JSON to temp file, send filename to FIFO
+                    import time
+                    temp_msg = os.path.expanduser(f"~/.claude/piper-daemon/msg-{int(time.time() * 1e9)}.json")
+                    with open(temp_msg, 'w') as tf:
+                        json.dump(payload, tf)
+                    # Use subprocess to write to FIFO (mimics bash behavior exactly)
+                    # Python's open() on FIFO can have buffering issues in async context
+                    sp.run(['bash', '-c', f'echo "{temp_msg}" > "{daemon_fifo}"'], timeout=5)
+
+                    # Build human-readable status message
+                    effects_used = []
+                    if payload.get("reverb"):
+                        effects_used.append(f"reverb={payload['reverb']}")
+
+                    # Check if background music is actually enabled
+                    bg_enabled_file = os.path.expanduser("~/.claude/config/background-music-enabled.txt")
+                    bg_actually_enabled = False
+                    if os.path.exists(bg_enabled_file):
+                        try:
+                            with open(bg_enabled_file, 'r') as f:
+                                bg_actually_enabled = f.read().strip().lower() == "true"
+                        except:
+                            pass
+
+                    if payload.get("background") and bg_actually_enabled:
+                        effects_used.append("background music")
+
+                    if effects_used:
+                        effects_str = f" with {', '.join(effects_used)}"
+                    else:
+                        effects_str = ""
+                    return f"⚡ TTS via daemon{effects_str}"
+                except Exception:
+                    pass  # Fall through to subprocess
+
+            # FALLBACK: Full subprocess processing
             # Temporarily set personality if specified
             if personality:
                 original_personality = await self._get_personality()
@@ -152,6 +235,13 @@ class AgentVibesServer:
                     env["PATH"] = f"{local_bin}:{env['PATH']}"
             else:
                 env["PATH"] = local_bin
+
+            # Enable synchronous audio playback for MCP (background process gets killed otherwise)
+            env["MCP_SYNC_PLAY"] = "true"
+
+            # Set XDG_RUNTIME_DIR for PulseAudio socket access
+            uid = os.getuid()
+            env["XDG_RUNTIME_DIR"] = f"/run/user/{uid}"
 
             result = await asyncio.create_subprocess_exec(
                 *args,
@@ -260,7 +350,8 @@ class AgentVibesServer:
             self.VOICE_MANAGER_SCRIPT, ["switch", voice_name, "--silent"]
         )
         if result and "✅" in result:
-            return f"✅ Voice switched to: {voice_name}"
+            # Daemon restart handled by voice-manager.sh (single source)
+            return f"✅ Voice switched to: {voice_name} (daemon restarted)"
         return f"❌ Failed to switch voice: {result}"
 
     async def list_personalities(self) -> str:
@@ -734,6 +825,10 @@ class AgentVibesServer:
                 env["PATH"] = f"{local_bin}:{env['PATH']}"
         else:
             env["PATH"] = local_bin
+
+        # Ensure XDG_RUNTIME_DIR is set for systemctl --user to work
+        if "XDG_RUNTIME_DIR" not in env:
+            env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
 
         try:
             result = await asyncio.create_subprocess_exec(

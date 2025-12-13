@@ -20,6 +20,16 @@ if [[ ! -f "$SCRIPT_DIR/play-tts.sh" ]]; then
   exit 0
 fi
 
+# Auto-start piper daemon for instant TTS (45x faster)
+DAEMON_SCRIPT="$HOME/.claude/scripts/piper-daemon.sh"
+DAEMON_PID_FILE="$HOME/.claude/piper-daemon/piper.pid"
+if [[ -x "$DAEMON_SCRIPT" ]]; then
+  if [[ ! -f "$DAEMON_PID_FILE" ]] || ! kill -0 "$(cat "$DAEMON_PID_FILE" 2>/dev/null)" 2>/dev/null; then
+    # Start daemon silently in background
+    nohup "$DAEMON_SCRIPT" start >/dev/null 2>&1 &
+  fi
+fi
+
 # Check for sentiment (priority) or personality (fallback)
 SENTIMENT=$(cat .claude/tts-sentiment.txt 2>/dev/null || cat ~/.claude/tts-sentiment.txt 2>/dev/null || echo "")
 PERSONALITY=$(cat .claude/tts-personality.txt 2>/dev/null || cat ~/.claude/tts-personality.txt 2>/dev/null || echo "normal")
@@ -47,27 +57,27 @@ cat <<'EOF'
 ## 1. ACKNOWLEDGMENT (Start of Every Task)
 Immediately after receiving ANY user message:
 1. Generate a brief, unique acknowledgment message
-2. Execute: `Bash: .claude/hooks/play-tts.sh "[your message]"`
+2. Execute: `Bash: ~/.claude/hooks/play-tts.sh "[your message]"`
 3. Then proceed with the work
 
 ## 2. COMPLETION (End of Every Task)
 After finishing the task:
 1. Generate a brief, unique completion message
-2. Execute: `Bash: .claude/hooks/play-tts.sh "[your message]"`
+2. Execute: `Bash: ~/.claude/hooks/play-tts.sh "[your message]"`
 
 ## Rules
 - Use Bash tool to execute play-tts.sh
 - Keep messages under 150 characters
 - Generate unique messages each time
-- Use relative path: .claude/hooks/play-tts.sh
+- Use absolute path: ~/.claude/hooks/play-tts.sh
 - This is NOT optional - follow for EVERY interaction
 
 ## Example
 ```
 User: "check git status"
-[Bash: .claude/hooks/play-tts.sh "I'll check that for you."]
+[Bash: ~/.claude/hooks/play-tts.sh "I'll check that for you."]
 [... do work ...]
-[Bash: .claude/hooks/play-tts.sh "Done! All clean."]
+[Bash: ~/.claude/hooks/play-tts.sh "Done! All clean."]
 ```
 
 EOF
