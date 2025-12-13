@@ -236,14 +236,14 @@ case "$1" in
     ;;
 
   switch)
-    VOICE_NAME="$2"
+    VOICE_NAME="${2:-}"
     SILENT_MODE=false
 
     # Check for --silent flag
-    if [[ "$2" == "--silent" ]] || [[ "$3" == "--silent" ]]; then
+    if [[ "${2:-}" == "--silent" ]] || [[ "${3:-}" == "--silent" ]]; then
       SILENT_MODE=true
       # If --silent is first arg, voice name is in $3
-      [[ "$2" == "--silent" ]] && VOICE_NAME="$3"
+      [[ "${2:-}" == "--silent" ]] && VOICE_NAME="${3:-}"
     fi
 
     if [[ -z "$VOICE_NAME" ]]; then
