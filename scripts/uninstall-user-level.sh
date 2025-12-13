@@ -17,7 +17,7 @@ echo "=== AgentVibes Uninstall ==="
 echo ""
 
 # Step 1: Remove from MCP Aggregator (if configured)
-echo "[1/4] Removing from MCP configuration..."
+echo "[1/5] Removing from MCP configuration..."
 MCP_REMOVED=false
 
 if [[ -f "$AGGREGATOR_CONFIG" ]]; then
@@ -51,7 +51,7 @@ if [[ "$MCP_REMOVED" == "false" ]]; then
 fi
 
 # Step 2: Stop and disable systemd service (Linux only)
-echo "[2/4] Removing systemd service..."
+echo "[2/5] Removing systemd service..."
 if [[ "$(uname)" == "Linux" ]] && command -v systemctl &>/dev/null; then
   if systemctl --user is-active piper-tts &>/dev/null; then
     systemctl --user stop piper-tts 2>/dev/null && echo "  Stopped piper-tts service"
@@ -71,7 +71,7 @@ else
 fi
 
 # Step 3: Remove user-level marker
-echo "[3/4] Removing user-level marker..."
+echo "[3/5] Removing user-level marker..."
 if [[ -f "$USER_CLAUDE/agentvibes-user-level" ]]; then
   rm -f "$USER_CLAUDE/agentvibes-user-level"
   echo "  Removed agentvibes-user-level marker"
@@ -80,7 +80,7 @@ else
 fi
 
 # Step 4: Clean up ALL AgentVibes files (complete removal)
-echo "[4/4] Cleaning up AgentVibes files..."
+echo "[4/5] Cleaning up AgentVibes files..."
 
 # Remove daemon scripts
 if [[ -d "$USER_CLAUDE/scripts" ]]; then
@@ -93,6 +93,12 @@ fi
 if [[ -d "$USER_CLAUDE/piper-daemon" ]]; then
   rm -rf "$USER_CLAUDE/piper-daemon"
   echo "  Removed piper-daemon directory"
+fi
+
+# Remove MCP server directory (stable location for server.py)
+if [[ -d "$USER_CLAUDE/mcp-server" ]]; then
+  rm -rf "$USER_CLAUDE/mcp-server"
+  echo "  Removed mcp-server directory"
 fi
 
 # Remove audio directory (AgentVibes sounds)

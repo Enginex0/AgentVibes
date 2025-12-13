@@ -15,7 +15,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PACKAGE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 AGGREGATOR_CONFIG="$USER_CLAUDE/mcp-aggregator/config.json"
-MCP_SERVER="$PACKAGE_DIR/bin/mcp-server.js"
+# Use stable user directory for MCP server (not volatile NPX cache)
+MCP_SERVER="$USER_CLAUDE/mcp-server/server.py"
 
 echo "=== AgentVibes User-Level Setup ==="
 echo "Package: $PACKAGE_DIR"
@@ -23,11 +24,11 @@ echo "Target: $USER_CLAUDE"
 echo ""
 
 # Create directory structure
-echo "[1/8] Creating directory structure..."
-mkdir -p "$USER_CLAUDE"/{hooks,personalities,config,audio,scripts,piper-daemon}
+echo "[1/9] Creating directory structure..."
+mkdir -p "$USER_CLAUDE"/{hooks,personalities,config,audio,scripts,piper-daemon,mcp-server}
 
 # Copy hooks (already patched with user-level support)
-echo "[2/8] Installing hooks..."
+echo "[2/9] Installing hooks..."
 if [[ -d "$PACKAGE_DIR/.claude/hooks" ]]; then
   cp -r "$PACKAGE_DIR/.claude/hooks/"* "$USER_CLAUDE/hooks/" 2>/dev/null || true
   chmod +x "$USER_CLAUDE/hooks/"*.sh 2>/dev/null || true
@@ -35,14 +36,14 @@ if [[ -d "$PACKAGE_DIR/.claude/hooks" ]]; then
 fi
 
 # Copy personalities (with voice assignments)
-echo "[3/8] Installing personalities..."
+echo "[3/9] Installing personalities..."
 if [[ -d "$PACKAGE_DIR/.claude/personalities" ]]; then
   cp -r "$PACKAGE_DIR/.claude/personalities/"* "$USER_CLAUDE/personalities/" 2>/dev/null || true
   echo "  Copied $(ls "$USER_CLAUDE/personalities/" 2>/dev/null | wc -l) personality files"
 fi
 
 # Copy enhanced scripts
-echo "[4/8] Installing daemon scripts..."
+echo "[4/9] Installing daemon scripts..."
 if [[ -f "$PACKAGE_DIR/scripts/piper-worker-enhanced.sh" ]]; then
   cp "$PACKAGE_DIR/scripts/piper-worker-enhanced.sh" "$USER_CLAUDE/scripts/"
   cp "$PACKAGE_DIR/scripts/piper-daemon.sh" "$USER_CLAUDE/scripts/"
@@ -51,14 +52,40 @@ if [[ -f "$PACKAGE_DIR/scripts/piper-worker-enhanced.sh" ]]; then
 fi
 
 # Copy audio assets
-echo "[5/8] Installing audio assets..."
+echo "[5/9] Installing audio assets..."
 if [[ -d "$PACKAGE_DIR/audio" ]]; then
   cp -r "$PACKAGE_DIR/audio/"* "$USER_CLAUDE/audio/" 2>/dev/null || true
   echo "  Copied audio files"
 fi
 
+# Copy MCP server to stable user location (critical: avoids volatile NPX cache paths)
+echo "[6/9] Installing MCP server..."
+if [[ -f "$PACKAGE_DIR/mcp-server/server.py" ]]; then
+  cp "$PACKAGE_DIR/mcp-server/server.py" "$USER_CLAUDE/mcp-server/"
+  echo "  Copied server.py to stable location"
+
+  # Try to install mcp Python package (required for server.py)
+  if command -v pip3 &>/dev/null; then
+    if pip3 install --user --quiet "mcp>=0.9.0" 2>/dev/null; then
+      echo "  Installed MCP Python package"
+    else
+      echo "  Warning: Could not install mcp package (TTS shell mode still works)"
+    fi
+  elif command -v pip &>/dev/null; then
+    if pip install --user --quiet "mcp>=0.9.0" 2>/dev/null; then
+      echo "  Installed MCP Python package"
+    else
+      echo "  Warning: Could not install mcp package (TTS shell mode still works)"
+    fi
+  else
+    echo "  Warning: pip not found, MCP server may not work (TTS shell mode still works)"
+  fi
+else
+  echo "  Warning: server.py not found in package"
+fi
+
 # Create default configs (only if not exist - preserve user settings)
-echo "[6/8] Setting up default configuration..."
+echo "[7/9] Setting up default configuration..."
 [[ ! -f "$USER_CLAUDE/tts-provider.txt" ]] && echo "piper" > "$USER_CLAUDE/tts-provider.txt" && echo "  Set provider: piper"
 [[ ! -f "$USER_CLAUDE/tts-voice.txt" ]] && echo "en_US-lessac-medium" > "$USER_CLAUDE/tts-voice.txt" && echo "  Set voice: en_US-lessac-medium"
 [[ ! -f "$USER_CLAUDE/tts-verbosity.txt" ]] && echo "medium" > "$USER_CLAUDE/tts-verbosity.txt" && echo "  Set verbosity: medium"
@@ -69,7 +96,7 @@ touch "$USER_CLAUDE/agentvibes-user-level"
 echo "  User-level mode enabled"
 
 # Install systemd service (Linux only)
-echo "[7/8] Installing systemd service..."
+echo "[8/9] Installing systemd service..."
 if [[ "$(uname)" == "Linux" ]] && command -v systemctl &>/dev/null; then
   if [[ -f "$PACKAGE_DIR/systemd/piper-tts.service" ]]; then
     mkdir -p "$HOME/.config/systemd/user"
@@ -87,7 +114,7 @@ else
 fi
 
 # Configure MCP Server (auto-detect aggregator vs direct)
-echo "[8/8] Configuring MCP server..."
+echo "[9/9] Configuring MCP server..."
 MCP_CONFIGURED=false
 
 if [[ -f "$AGGREGATOR_CONFIG" ]]; then
@@ -107,7 +134,7 @@ if [[ -f "$AGGREGATOR_CONFIG" ]]; then
       if (
         flock -x -w 10 200 || { echo "  Warning: Could not acquire config lock" >&2; exit 1; }
         jq --arg mcp "$MCP_SERVER" '.servers.agentvibes = {
-          "command": "node",
+          "command": "python3",
           "args": [$mcp],
           "env": {}
         }' "$AGGREGATOR_CONFIG" > "$TEMP_CONFIG" && mv "$TEMP_CONFIG" "$AGGREGATOR_CONFIG"
@@ -134,7 +161,7 @@ elif command -v claude &>/dev/null; then
     MCP_CONFIGURED=true
   else
     # Add via Claude CLI (user scope for global availability)
-    if claude mcp add --transport stdio --scope user agentvibes -- node "$MCP_SERVER" 2>/dev/null; then
+    if claude mcp add --transport stdio --scope user agentvibes -- python3 "$MCP_SERVER" 2>/dev/null; then
       echo "  Added AgentVibes MCP server (user scope)"
       MCP_CONFIGURED=true
     else
