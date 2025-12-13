@@ -24,11 +24,11 @@ echo "Target: $USER_CLAUDE"
 echo ""
 
 # Create directory structure
-echo "[1/9] Creating directory structure..."
-mkdir -p "$USER_CLAUDE"/{hooks,personalities,config,audio,scripts,piper-daemon,mcp-server}
+echo "[1/10] Creating directory structure..."
+mkdir -p "$USER_CLAUDE"/{hooks,personalities,commands,config,audio,scripts,piper-daemon,mcp-server}
 
 # Copy hooks (already patched with user-level support)
-echo "[2/9] Installing hooks..."
+echo "[2/10] Installing hooks..."
 if [[ -d "$PACKAGE_DIR/.claude/hooks" ]]; then
   cp -r "$PACKAGE_DIR/.claude/hooks/"* "$USER_CLAUDE/hooks/" 2>/dev/null || true
   chmod +x "$USER_CLAUDE/hooks/"*.sh 2>/dev/null || true
@@ -36,14 +36,23 @@ if [[ -d "$PACKAGE_DIR/.claude/hooks" ]]; then
 fi
 
 # Copy personalities (with voice assignments)
-echo "[3/9] Installing personalities..."
+echo "[3/10] Installing personalities..."
 if [[ -d "$PACKAGE_DIR/.claude/personalities" ]]; then
   cp -r "$PACKAGE_DIR/.claude/personalities/"* "$USER_CLAUDE/personalities/" 2>/dev/null || true
   echo "  Copied $(ls "$USER_CLAUDE/personalities/" 2>/dev/null | wc -l) personality files"
 fi
 
+# Copy slash commands (for /agent-vibes:* commands)
+echo "[4/10] Installing slash commands..."
+if [[ -d "$PACKAGE_DIR/.claude/commands" ]]; then
+  cp -r "$PACKAGE_DIR/.claude/commands/"* "$USER_CLAUDE/commands/" 2>/dev/null || true
+  # Count total commands including subdirectories
+  CMD_COUNT=$(find "$USER_CLAUDE/commands" -name "*.md" 2>/dev/null | wc -l)
+  echo "  Copied $CMD_COUNT slash command files"
+fi
+
 # Copy enhanced scripts
-echo "[4/9] Installing daemon scripts..."
+echo "[5/10] Installing daemon scripts..."
 if [[ -f "$PACKAGE_DIR/scripts/piper-worker-enhanced.sh" ]]; then
   cp "$PACKAGE_DIR/scripts/piper-worker-enhanced.sh" "$USER_CLAUDE/scripts/"
   cp "$PACKAGE_DIR/scripts/piper-daemon.sh" "$USER_CLAUDE/scripts/"
@@ -52,14 +61,14 @@ if [[ -f "$PACKAGE_DIR/scripts/piper-worker-enhanced.sh" ]]; then
 fi
 
 # Copy audio assets
-echo "[5/9] Installing audio assets..."
+echo "[6/10] Installing audio assets..."
 if [[ -d "$PACKAGE_DIR/audio" ]]; then
   cp -r "$PACKAGE_DIR/audio/"* "$USER_CLAUDE/audio/" 2>/dev/null || true
   echo "  Copied audio files"
 fi
 
 # Copy MCP server to stable user location (critical: avoids volatile NPX cache paths)
-echo "[6/9] Installing MCP server..."
+echo "[7/10] Installing MCP server..."
 if [[ -f "$PACKAGE_DIR/mcp-server/server.py" ]]; then
   cp "$PACKAGE_DIR/mcp-server/server.py" "$USER_CLAUDE/mcp-server/"
   echo "  Copied server.py to stable location"
@@ -85,7 +94,7 @@ else
 fi
 
 # Create default configs (only if not exist - preserve user settings)
-echo "[7/9] Setting up default configuration..."
+echo "[8/10] Setting up default configuration..."
 [[ ! -f "$USER_CLAUDE/tts-provider.txt" ]] && echo "piper" > "$USER_CLAUDE/tts-provider.txt" && echo "  Set provider: piper"
 [[ ! -f "$USER_CLAUDE/tts-voice.txt" ]] && echo "en_US-lessac-medium" > "$USER_CLAUDE/tts-voice.txt" && echo "  Set voice: en_US-lessac-medium"
 [[ ! -f "$USER_CLAUDE/tts-verbosity.txt" ]] && echo "medium" > "$USER_CLAUDE/tts-verbosity.txt" && echo "  Set verbosity: medium"
@@ -96,7 +105,7 @@ touch "$USER_CLAUDE/agentvibes-user-level"
 echo "  User-level mode enabled"
 
 # Install systemd service (Linux only)
-echo "[8/9] Installing systemd service..."
+echo "[9/10] Installing systemd service..."
 if [[ "$(uname)" == "Linux" ]] && command -v systemctl &>/dev/null; then
   if [[ -f "$PACKAGE_DIR/systemd/piper-tts.service" ]]; then
     mkdir -p "$HOME/.config/systemd/user"
@@ -114,7 +123,7 @@ else
 fi
 
 # Configure MCP Server (auto-detect aggregator vs direct)
-echo "[9/9] Configuring MCP server..."
+echo "[10/10] Configuring MCP server..."
 MCP_CONFIGURED=false
 
 if [[ -f "$AGGREGATOR_CONFIG" ]]; then
