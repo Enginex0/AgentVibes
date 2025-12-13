@@ -35,7 +35,9 @@
     "bin/",
     "src/",
     "scripts/postinstall.js",
+    "scripts/preuninstall.js",
     "scripts/install-user-level.sh",
+    "scripts/uninstall-user-level.sh",
     "scripts/piper-worker-enhanced.sh",
     "scripts/piper-daemon.sh",
     "systemd/",
@@ -69,6 +71,7 @@
   "scripts": {
     "install-local": "node src/installer.js install",
     "postinstall": "node scripts/postinstall.js",
+    "preuninstall": "node scripts/preuninstall.js",
     "install-mcp-deps": "node mcp-server/install-deps.js",
     "test": "AGENTVIBES_TEST_MODE=true bats test/unit/*.bats && npm run test:coverage",
     "test:bats": "AGENTVIBES_TEST_MODE=true bats test/unit/*.bats",
