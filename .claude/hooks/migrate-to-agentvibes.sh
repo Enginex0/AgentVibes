@@ -24,7 +24,7 @@ echo ""
 
 # Determine project root
 if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
-    PROJECT_ROOT="$CLAUDE_PROJECT_DIR"
+    PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-}"
 else
     PROJECT_ROOT="$(pwd)"
 fi

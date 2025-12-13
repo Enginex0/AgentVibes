@@ -19,8 +19,29 @@ const isNpxExecution = __dirname.includes('_npx') || __dirname.includes('.npm');
 // If running via npx, we need to handle things differently
 if (isNpxExecution) {
   const arguments_ = process.argv.slice(2);
+  const command = arguments_[0] || 'install';
 
-  // Use the installer for all commands
+  // For 'install' command, use non-interactive user-level setup by default
+  // This provides zero-config installation for the A+ quality fork
+  if (command === 'install' || command === 'setup') {
+    const userLevelScript = path.join(__dirname, '..', 'scripts', 'install-user-level.sh');
+
+    if (fs.existsSync(userLevelScript)) {
+      console.log('\n🚀 AgentVibes Zero-Config Installation\n');
+      try {
+        execFileSync('bash', [userLevelScript], {
+          stdio: 'inherit',
+          cwd: path.dirname(__dirname),
+        });
+        process.exit(0);
+      } catch (error) {
+        console.error('Installation failed. Try interactive mode: npx github:Enginex0/AgentVibes interactive');
+        process.exit(error.status || 1);
+      }
+    }
+  }
+
+  // For other commands or if user-level script not found, use interactive installer
   const installerPath = path.join(__dirname, '..', 'src', 'installer.js');
 
   if (!fs.existsSync(installerPath)) {

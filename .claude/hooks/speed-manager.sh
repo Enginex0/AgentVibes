@@ -44,8 +44,8 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Determine config directory (project-local first, then global)
-if [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -d "$CLAUDE_PROJECT_DIR/.claude" ]]; then
-  CONFIG_DIR="$CLAUDE_PROJECT_DIR/.claude/config"
+if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]] && [[ -d "${CLAUDE_PROJECT_DIR:-}/.claude" ]]; then
+  CONFIG_DIR="${CLAUDE_PROJECT_DIR:-}/.claude/config"
 else
   # Try to find .claude in current path
   CURRENT_DIR="$PWD"

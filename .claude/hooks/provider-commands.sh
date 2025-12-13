@@ -146,7 +146,7 @@ provider_switch() {
 
   # Auto-enable force mode if running non-interactively (e.g., from MCP)
   # Check multiple conditions for MCP/non-interactive context
-  if [[ ! -t 0 ]] || [[ -n "$CLAUDE_PROJECT_DIR" ]] || [[ -n "$MCP_SERVER" ]]; then
+  if [[ ! -t 0 ]] || [[ -n "${CLAUDE_PROJECT_DIR:-}" ]] || [[ -n "${MCP_SERVER:-}" ]]; then
     force_mode=true
   fi
 

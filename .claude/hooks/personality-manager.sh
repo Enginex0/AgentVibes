@@ -48,9 +48,9 @@ PERSONALITIES_DIR="$SCRIPT_DIR/../personalities"
 if [[ -f "$HOME/.claude/agentvibes-user-level" ]]; then
   # User-level mode: Always use ~/.claude for settings (single source of truth)
   CLAUDE_DIR="$HOME/.claude"
-elif [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -d "$CLAUDE_PROJECT_DIR/.claude" ]]; then
+elif [[ -n "${CLAUDE_PROJECT_DIR:-}" ]] && [[ -d "${CLAUDE_PROJECT_DIR:-}/.claude" ]]; then
   # MCP context: Use the project directory where MCP was invoked
-  CLAUDE_DIR="$CLAUDE_PROJECT_DIR/.claude"
+  CLAUDE_DIR="${CLAUDE_PROJECT_DIR:-}/.claude"
 else
   # Direct usage context: Use script location
   # Script is at .claude/hooks/personality-manager.sh, so .claude is ..

@@ -79,9 +79,9 @@ else
   if [[ -f "$HOME/.claude/agentvibes-user-level" ]]; then
     # User-level mode: Always use ~/.claude for settings (single source of truth)
     VOICE_FILE="$HOME/.claude/tts-voice.txt"
-  elif [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -f "$CLAUDE_PROJECT_DIR/.claude/tts-voice.txt" ]]; then
+  elif [[ -n "${CLAUDE_PROJECT_DIR:-}" ]] && [[ -f "${CLAUDE_PROJECT_DIR:-}/.claude/tts-voice.txt" ]]; then
     # MCP context: Use the project directory where MCP was invoked
-    VOICE_FILE="$CLAUDE_PROJECT_DIR/.claude/tts-voice.txt"
+    VOICE_FILE="${CLAUDE_PROJECT_DIR:-}/.claude/tts-voice.txt"
   elif [[ -f "$SCRIPT_DIR/../tts-voice.txt" ]]; then
     # Direct usage: Use script location
     VOICE_FILE="$SCRIPT_DIR/../tts-voice.txt"
@@ -190,8 +190,8 @@ fi
 if [[ -f "$HOME/.claude/agentvibes-user-level" ]]; then
   # User-level mode: Always use ~/.claude for audio (single source of truth)
   AUDIO_DIR="$HOME/.claude/audio"
-elif [[ -n "$CLAUDE_PROJECT_DIR" ]]; then
-  AUDIO_DIR="$CLAUDE_PROJECT_DIR/.claude/audio"
+elif [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
+  AUDIO_DIR="${CLAUDE_PROJECT_DIR:-}/.claude/audio"
 else
   # Fallback: try to find .claude directory in current path
   CURRENT_DIR="$PWD"

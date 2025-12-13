@@ -74,8 +74,8 @@ show_common_voices() {
 get_voice_file_path() {
   local voice_file=""
 
-  if [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -f "$CLAUDE_PROJECT_DIR/.claude/tts-voice.txt" ]]; then
-    voice_file="$CLAUDE_PROJECT_DIR/.claude/tts-voice.txt"
+  if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]] && [[ -f "${CLAUDE_PROJECT_DIR:-}/.claude/tts-voice.txt" ]]; then
+    voice_file="${CLAUDE_PROJECT_DIR:-}/.claude/tts-voice.txt"
   elif [[ -f "$SCRIPT_DIR/../tts-voice.txt" ]]; then
     voice_file="$SCRIPT_DIR/../tts-voice.txt"
   elif [[ -f "$HOME/.claude/tts-voice.txt" ]]; then
@@ -147,8 +147,8 @@ fi
 
 # @function determine_audio_directory
 # @intent Find appropriate directory for audio file storage
-if [[ -n "$CLAUDE_PROJECT_DIR" ]]; then
-  AUDIO_DIR="$CLAUDE_PROJECT_DIR/.claude/audio"
+if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
+  AUDIO_DIR="${CLAUDE_PROJECT_DIR:-}/.claude/audio"
 else
   CURRENT_DIR="$PWD"
   while [[ "$CURRENT_DIR" != "/" ]]; do

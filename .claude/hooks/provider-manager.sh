@@ -55,8 +55,8 @@ get_provider_config_path() {
   # Check for user-level mode first (single source of truth)
   if [[ -f "$HOME/.claude/agentvibes-user-level" ]]; then
     provider_file="$HOME/.claude/tts-provider.txt"
-  elif [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -d "$CLAUDE_PROJECT_DIR/.claude" ]]; then
-    provider_file="$CLAUDE_PROJECT_DIR/.claude/tts-provider.txt"
+  elif [[ -n "${CLAUDE_PROJECT_DIR:-}" ]] && [[ -d "${CLAUDE_PROJECT_DIR:-}/.claude" ]]; then
+    provider_file="${CLAUDE_PROJECT_DIR:-}/.claude/tts-provider.txt"
   else
     # Search up directory tree for .claude/
     local current_dir="$PWD"
@@ -139,8 +139,8 @@ set_active_provider() {
   # Reset voice when switching providers to avoid incompatible voices
   # (e.g., ElevenLabs "Demon Monster" doesn't exist in Piper)
   local voice_file
-  if [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -d "$CLAUDE_PROJECT_DIR/.claude" ]]; then
-    voice_file="$CLAUDE_PROJECT_DIR/.claude/tts-voice.txt"
+  if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]] && [[ -d "${CLAUDE_PROJECT_DIR:-}/.claude" ]]; then
+    voice_file="${CLAUDE_PROJECT_DIR:-}/.claude/tts-voice.txt"
   else
     voice_file="$HOME/.claude/tts-voice.txt"
   fi

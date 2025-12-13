@@ -42,9 +42,9 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -d "$CLAUDE_PROJECT_DIR/.claude" ]]; then
+if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]] && [[ -d "${CLAUDE_PROJECT_DIR:-}/.claude" ]]; then
   # MCP context: Use the project directory where MCP was invoked
-  CLAUDE_DIR="$CLAUDE_PROJECT_DIR/.claude"
+  CLAUDE_DIR="${CLAUDE_PROJECT_DIR:-}/.claude"
 else
   # Direct usage context: Use script location
   CLAUDE_DIR="$(cd "$SCRIPT_DIR/.." 2>/dev/null && pwd)"

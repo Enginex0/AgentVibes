@@ -55,9 +55,9 @@ to_lower() {
 if [[ -f "$HOME/.claude/agentvibes-user-level" ]]; then
   # User-level mode: Always use ~/.claude for settings (single source of truth)
   CLAUDE_DIR="$HOME/.claude"
-elif [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -d "$CLAUDE_PROJECT_DIR/.claude" ]]; then
+elif [[ -n "${CLAUDE_PROJECT_DIR:-}" ]] && [[ -d "${CLAUDE_PROJECT_DIR:-}/.claude" ]]; then
   # MCP context: Use the project directory where MCP was invoked
-  CLAUDE_DIR="$CLAUDE_PROJECT_DIR/.claude"
+  CLAUDE_DIR="${CLAUDE_PROJECT_DIR:-}/.claude"
 else
   # Direct usage context: Use script location
   SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -594,8 +594,8 @@ case "$1" in
   replay)
     # Replay recent TTS audio from history
     # Use project-local directory with same logic as play-tts.sh
-    if [[ -n "$CLAUDE_PROJECT_DIR" ]]; then
-      AUDIO_DIR="$CLAUDE_PROJECT_DIR/.claude/audio"
+    if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
+      AUDIO_DIR="${CLAUDE_PROJECT_DIR:-}/.claude/audio"
     else
       # Fallback: try to find .claude directory in current path
       CURRENT_DIR="$PWD"
