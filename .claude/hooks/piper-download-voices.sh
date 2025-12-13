@@ -92,7 +92,7 @@ NEED_DOWNLOAD=()
 
 for voice in "${COMMON_VOICES[@]}"; do
   if verify_voice "$voice" 2>/dev/null; then
-    ((ALREADY_DOWNLOADED++))
+    ALREADY_DOWNLOADED=$((ALREADY_DOWNLOADED + 1))
     ALREADY_DOWNLOADED_LIST+=("$voice")
   else
     NEED_DOWNLOAD+=("$voice")

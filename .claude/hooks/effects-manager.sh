@@ -90,8 +90,8 @@ set_reverb() {
         local temp_file="${CONFIG_FILE}.tmp"
 
         # Use flock to prevent config file race
-        (
-            flock -x -w 5 200 || { echo "Warning: Could not acquire config lock" >&2; return 1; }
+        if (
+            flock -x -w 5 200 || exit 1
 
             # Process each line
             while IFS='|' read -r agent sox_effects bg_file bg_vol || [[ -n "$agent" ]]; do
@@ -118,9 +118,12 @@ set_reverb() {
 
             # Replace original with temp
             mv "$temp_file" "$CONFIG_FILE"
-        ) 200>"${CONFIG_FILE}.lock"
-
-        echo "✅ Reverb set to '$level' for all agents"
+        ) 200>"${CONFIG_FILE}.lock"; then
+            echo "✅ Reverb set to '$level' for all agents"
+        else
+            echo "❌ Failed to set reverb (could not acquire lock)" >&2
+            return 1
+        fi
     else
         # Apply to specific agent
         echo "🎛️ Setting reverb to '$level' for '$agent_name'..."
