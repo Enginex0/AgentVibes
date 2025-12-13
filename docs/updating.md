@@ -14,7 +14,7 @@ This checks for the latest version and updates with confirmation.
 
 ### If installed via npx:
 ```bash
-npx agentvibes update --yes
+npx github:Enginex0/AgentVibes update --yes
 ```
 
 ### If installed globally via npm:

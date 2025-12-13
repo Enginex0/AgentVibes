@@ -1,110 +1,75 @@
-# 🚀 Claude Code Quick Start
+# Quick Start
 
-Get AgentVibes up and running in 3 simple steps!
+Get AgentVibes running in 3 steps.
 
-## 🍎 macOS Users - Important Prerequisite
+## macOS Users
 
-**REQUIRED:** macOS ships with bash 3.2 (from 2007) which is incompatible with AgentVibes. Install bash 5.x first:
+Install bash 5.x first:
 
 ```bash
-# One-time setup
 brew install bash
-
-# Verify installation
-bash --version
-# Should show: GNU bash, version 5.x
 ```
 
-**Why?** AgentVibes uses modern bash features (associative arrays, advanced string manipulation) that aren't available in bash 3.2. The `#!/usr/bin/env bash` shebang in our scripts will automatically use Homebrew's bash 5.x once installed.
+macOS ships with bash 3.2 which lacks features AgentVibes needs.
 
 ---
 
-## Step 1: Install AgentVibes
-
-Choose your preferred installation method:
-
-### **Option A: Using npx (Recommended)** ⚡
-No installation needed! Run directly:
-```bash
-npx agentvibes install
-```
-
-### **Option B: Install globally via npm** 📦
-Install once, use anywhere:
-```bash
-npm install -g agentvibes
-agentvibes install
-```
-
-### **Option C: From source (Development)** 🔧
-Clone and run from repository:
-```bash
-git clone https://github.com/paulpreibisch/AgentVibes.git
-cd AgentVibes
-npm install
-node bin/agent-vibes install
-```
-
-## Step 2: Choose Your TTS Provider
-
-AgentVibes supports two TTS providers - pick the one that fits your needs:
-
-### **Option A: Piper TTS (Free, Recommended for Getting Started)** 🆓
-
-**No setup required!** Piper TTS works out of the box with zero configuration.
-
-- ✅ Completely free, no API key needed
-- ✅ Works offline (perfect for Windows, WSL, Linux)
-- ✅ 50+ neural voices
-- ✅ 18 languages supported
-- ✅ Privacy-focused local processing
-
-**To use:** Just install AgentVibes and you're done! The installer will set Piper as default if no Piper TTS key is detected.
-
-### **Option B: Piper TTS (Premium AI Voices)** 🎤
-
-**Best for production and variety.** Requires API key but offers 150+ premium voices.
-
-- ✅ 150+ professional AI voices
-- ✅ 30+ languages with multilingual v2
-- ✅ Studio-quality audio with emotional range
-- ✅ Character voices and unique personalities
-
-**Setup steps:**
-
-1. Sign up at [piper.io](https://piper.io/) (free tier: 10,000 chars/month)
-2. Copy your API key from the dashboard
-3. Add it to your environment:
+## Step 1: Install
 
 ```bash
-# Add to ~/.bashrc or ~/.zshrc
-source ~/.bashrc
+npx github:Enginex0/AgentVibes install
 ```
 
-**Switch providers anytime:** `/agent-vibes:provider switch`
+This installs hooks, personalities, MCP server, and systemd service.
 
-## Step 3: Start Using AgentVibes! 🎉
+## Step 2: Install Piper TTS
 
-**That's it - no additional setup needed!**
-
-AgentVibes works automatically through the **SessionStart hook** that injects TTS protocol instructions at the beginning of every Claude Code session.
-
-### How It Works:
-- ✅ **Automatic activation**: TTS protocol loads on every session start
-- ✅ **No commands needed**: Claude automatically speaks acknowledgments and completions
-- ✅ **SessionStart hook**: `.claude/settings.json` → `session-start-tts.sh`
-
-### Quick Test:
 ```bash
-# Try any command - Claude will speak acknowledgment and completion
-/agent-vibes:list              # List all voices
-/agent-vibes:switch Aria       # Switch to Aria voice
-/agent-vibes:personality flirty # Set personality
+pipx install piper-tts
 ```
 
-### For Claude Desktop/Warp:
-AgentVibes MCP is enabled by default once configured. No extra steps required!
+Download a voice:
+```bash
+~/.claude/hooks/piper-voice-manager.sh download en_US-lessac-medium
+```
+
+## Step 3: Start Daemon (Linux)
+
+```bash
+systemctl --user start piper-tts
+systemctl --user enable piper-tts
+```
+
+## Test
+
+```bash
+~/.claude/hooks/play-tts.sh "Hello world"
+```
+
+Or in Claude Code:
+```bash
+/agent-vibes:sample Aria
+```
 
 ---
 
-**[← Back to Main README](../README.md)**
+## Commands
+
+```bash
+/agent-vibes:list              # List voices
+/agent-vibes:switch Aria       # Switch voice
+/agent-vibes:personality pirate # Set personality
+/agent-vibes:verbosity medium  # Set verbosity
+```
+
+---
+
+## Uninstall
+
+```bash
+npx github:Enginex0/AgentVibes uninstall
+```
+
+---
+
+[Back to README](../README.md)

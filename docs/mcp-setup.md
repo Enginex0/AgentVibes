@@ -1,138 +1,85 @@
-# 🎙️ AgentVibes MCP Setup
+# MCP Setup
 
-**🎯 The easiest way to control AgentVibes - just talk naturally!**
+AgentVibes MCP is auto-configured during installation.
 
-In addition to installing AgentVibes in Claude Code using the NPX installer, we **highly recommend** installing the AgentVibes MCP server. This allows you to control AgentVibes simply by talking naturally to it (especially if you've installed [WhisperTyping](https://whispertyping.com/)), rather than having to remember slash commands.
-
-**Note:** Slash commands (`/agent-vibes:*`) only work in Claude Code. For Claude Desktop and Warp Terminal, you **must** use the AgentVibes MCP for voice control.
-
-Instead of remembering slash commands like `/agent-vibes:switch Aria`, just say:
-- "Switch to Aria voice"
-- "Change to pirate personality"
-- "Speak in Spanish"
-- "List available voices"
-
-## Why Use AgentVibes MCP?
-
-✅ **Natural language** - No commands to memorize
-
-✅ **Works everywhere** - Claude Desktop, Claude Code, Warp Terminal
-
-✅ **Unified interface** - Same tools across all apps
-
-✅ **Smart context** - Project-specific or global settings
-
-## Quick MCP Setup
-
-### For Claude Desktop
-
-**📖 Read This First:** If you haven't installed Claude Desktop yet, [click here for the Windows Setup Guide](../mcp-server/WINDOWS_SETUP.md) - it covers WSL setup, Python installation, and all prerequisites.
-
-**Step 1: Set Your Piper TTS API Key (Windows)**
-
-Open Command Prompt or PowerShell and run:
-```cmd
+```bash
+npx github:Enginex0/AgentVibes install
 ```
 
-**Important:** After running `setx`, you must:
-1. Close Claude Desktop completely (if running)
-2. Open a **new** terminal window (the variable won't be available in current terminal)
-3. Restart Claude Desktop
-
-**Step 2: Configure Claude Desktop**
-
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
-
-```json
-{
-  "mcpServers": {
-    "agentvibes": {
-      "command": "npx",
-      "args": ["-y", "agentvibes@beta", "agentvibes-mcp-server"]
-    }
-  }
-}
-```
-
-
-### For Warp Terminal
-
-Add to `~/.warp/mcp.json`:
-
-```json
-{
-  "agentvibes": {
-    "command": "npx",
-    "args": ["-y", "agentvibes@beta", "agentvibes-mcp-server"],
-    "env": {
-    }
-  }
-}
-```
-
-### For Claude Code
-
-Add to `.mcp-minimal.json` in your project:
-
-```json
-{
-  "mcpServers": {
-    "agentvibes": {
-      "command": "npx",
-      "args": ["-y", "agentvibes@beta", "agentvibes-mcp-server"],
-      "env": {
-      }
-    }
-  }
-}
-```
-
-**That's it!** Restart the app and start using natural language:
-
-```
-"Switch to Northern Terry voice"
-"Change personality to sarcastic"
-"What voices are available?"
-"Speak in French"
-"Show my current configuration"
-```
-
-## AgentVibes MCP vs Slash Commands
-
-| Feature | AgentVibes MCP | Slash Commands |
-|---------|-----------|----------------|
-| **Ease of Use** | Natural language | Must remember syntax |
-| **Works In** | Claude Desktop, Warp, Claude Code | Claude Code only |
-| **Setup** | Add to config file | Auto-installed |
-| **Examples** | "Switch voice to Aria" | `/agent-vibes:switch Aria` |
-
-**💡 Recommendation:** Use **AgentVibes MCP for daily use** (easier), **slash commands for scripting** (precise).
-
-## Available AgentVibes MCP Tools
-
-All these work with natural language:
-
-| Tool | Example Command |
-|------|-----------------|
-| **text_to_speech** | "Say hello in a pirate voice" |
-| **list_voices** | "What voices are available?" |
-| **set_voice** | "Change to Aria voice" |
-| **list_personalities** | "Show me all personalities" |
-| **set_personality** | "Set personality to flirty" |
-| **set_language** | "Speak in Spanish" |
-| **get_config** | "What's my current voice?" |
-| **replay_audio** | "Replay the last message" |
-
-## Where Settings Are Saved
-
-The MCP server is smart about where it saves settings:
-
-- **Warp Terminal** → Global `~/.claude/` (terminal-wide settings)
-- **Claude Code** → Project `.claude/` (per-project settings)
-- **Claude Desktop** → Project `.claude/` (per-project settings)
-
-This means different projects can have different voices/personalities!
+MCP allows natural language control instead of slash commands.
 
 ---
 
-**[← Back to Main README](../README.md)**
+## Usage
+
+Instead of `/agent-vibes:switch Aria`, say:
+
+- "Switch to Aria voice"
+- "Set personality to pirate"
+- "Speak in Spanish"
+- "List available voices"
+
+---
+
+## Manual Configuration
+
+If MCP wasn't auto-configured, add manually:
+
+### MCP Aggregator
+
+If using MCP Aggregator (`~/.claude/mcp-aggregator/config.json`):
+
+```json
+{
+  "servers": {
+    "agentvibes": {
+      "command": "python3",
+      "args": ["~/.claude/mcp-server/server.py"],
+      "env": {}
+    }
+  }
+}
+```
+
+### Claude CLI
+
+```bash
+claude mcp add --transport stdio --scope user agentvibes -- python3 ~/.claude/mcp-server/server.py
+```
+
+---
+
+## Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `text_to_speech` | Speak text |
+| `set_voice` | Switch voice |
+| `set_personality` | Set personality |
+| `set_verbosity` | Set verbosity level |
+| `list_voices` | List available voices |
+| `list_personalities` | List personalities |
+| `get_config` | Show current config |
+| `mute` / `unmute` | Toggle TTS |
+| `set_language` | Set language |
+| `set_learn_mode` | Toggle learning mode |
+| `set_speed` | Adjust speech rate |
+| `set_provider` | Switch TTS provider |
+
+---
+
+## MCP vs Slash Commands
+
+| Feature | MCP | Slash Commands |
+|---------|-----|----------------|
+| Natural language | Yes | No |
+| Works in Claude Desktop | Yes | No |
+| Works in Warp | Yes | No |
+| Works in Claude Code | Yes | Yes |
+| Token overhead | ~1500 tokens | None |
+
+Use slash commands if token usage is a concern.
+
+---
+
+[Back to README](../README.md)

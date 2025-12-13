@@ -9,10 +9,10 @@
 
 ```bash
 # Verify installation
-npx agentvibes status
+npx github:Enginex0/AgentVibes status
 
 # Reinstall
-npx agentvibes install --yes
+npx github:Enginex0/AgentVibes install --yes
 ```
 
 ## Wrong Voice Playing?
