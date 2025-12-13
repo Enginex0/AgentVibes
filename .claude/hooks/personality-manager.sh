@@ -43,7 +43,10 @@ PERSONALITIES_DIR="$SCRIPT_DIR/../personalities"
 # 2. Script location (for direct slash command usage)
 # 3. Global ~/.claude (fallback)
 
-if [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -d "$CLAUDE_PROJECT_DIR/.claude" ]]; then
+if [[ -f "$HOME/.claude/agentvibes-user-level" ]]; then
+  # User-level mode: Always use ~/.claude for settings (single source of truth)
+  CLAUDE_DIR="$HOME/.claude"
+elif [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -d "$CLAUDE_PROJECT_DIR/.claude" ]]; then
   # MCP context: Use the project directory where MCP was invoked
   CLAUDE_DIR="$CLAUDE_PROJECT_DIR/.claude"
 else

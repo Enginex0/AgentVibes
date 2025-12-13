@@ -60,7 +60,15 @@ get_voice() {
 
 get_model_path() {
   local voice=$(get_voice)
-  echo "$VOICES_DIR/${voice}.onnx"
+  local model_path="$VOICES_DIR/${voice}.onnx"
+  # Security: Validate path doesn't escape VOICES_DIR (prevent path traversal)
+  local resolved=$(realpath -m "$model_path" 2>/dev/null || echo "$model_path")
+  local voices_resolved=$(realpath -m "$VOICES_DIR" 2>/dev/null || echo "$VOICES_DIR")
+  if [[ "$resolved" != "$voices_resolved"/* ]] && [[ "$resolved" != "$voices_resolved" ]]; then
+    echo "ERROR: Invalid voice path (potential traversal)" >&2
+    return 1
+  fi
+  echo "$model_path"
 }
 
 # Get current reverb setting from config
@@ -267,10 +275,10 @@ trap cleanup SIGTERM SIGINT SIGHUP
 # Setup
 mkdir -p "$DAEMON_DIR" "$AUDIO_DIR"
 
-# Create FIFO if needed
+# Create FIFO if needed (with restrictive permissions - owner only)
 if [[ ! -p "$FIFO_IN" ]]; then
   rm -f "$FIFO_IN"
-  mkfifo "$FIFO_IN"
+  mkfifo -m 600 "$FIFO_IN"
 fi
 
 # Get model path
@@ -302,8 +310,8 @@ while true; do
     [[ -z "$line" ]] && continue
 
     # Check if line is a filename (temp file indirection to bypass LINE_MAX limit)
-    # Filenames start with / and end with .json
-    if [[ "$line" == /* ]] && [[ "$line" == *.json ]] && [[ -f "$line" ]]; then
+    # Security: Only accept temp files from our daemon directory (prevent arbitrary file read)
+    if [[ "$line" == "$DAEMON_DIR"/msg-*.json ]] && [[ -f "$line" ]]; then
       # Read actual content from temp file
       input=$(cat "$line" 2>/dev/null)
       # Delete temp file after reading

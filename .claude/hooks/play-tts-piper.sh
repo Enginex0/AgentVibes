@@ -352,15 +352,17 @@ fi
 # @why Support multiple audio players and prevent overlapping audio in learning mode
 # @param Uses global: $TEMP_FILE, $CURRENT_LANGUAGE
 # @sideeffects Plays audio with lock mechanism for sequential playback
-LOCK_FILE="/tmp/agentvibes-audio.lock"
 
-# Wait for previous audio to finish (max 30 seconds)
-for i in {1..60}; do
-  if [ ! -f "$LOCK_FILE" ]; then
-    break
-  fi
-  sleep 0.5
-done
+# Security: Use user-specific lock directory (prevent DoS via shared /tmp)
+LOCK_DIR="${XDG_RUNTIME_DIR:-$HOME/.cache}/agentvibes"
+mkdir -p "$LOCK_DIR" 2>/dev/null && chmod 700 "$LOCK_DIR" 2>/dev/null
+LOCK_FILE="$LOCK_DIR/audio.lock"
+
+# Wait for previous audio to finish using flock (max 30 seconds)
+exec 9>"$LOCK_FILE"
+if ! flock -w 30 9 2>/dev/null; then
+  echo "Warning: Could not acquire audio lock, playing anyway" >&2
+fi
 
 # Track last target language audio for replay command
 if [[ "$CURRENT_LANGUAGE" != "english" ]]; then
@@ -368,8 +370,7 @@ if [[ "$CURRENT_LANGUAGE" != "english" ]]; then
   echo "$TEMP_FILE" > "$TARGET_AUDIO_FILE"
 fi
 
-# Create lock and play audio
-touch "$LOCK_FILE"
+# Play audio (lock already acquired via flock)
 
 # Get audio duration for proper lock timing
 DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$TEMP_FILE" 2>/dev/null)
@@ -397,12 +398,12 @@ if [[ -f "$SAVE_AUDIO_FILE" ]] && [[ "$(cat "$SAVE_AUDIO_FILE" 2>/dev/null)" == 
   SAVE_AUDIO="true"
 fi
 
-# Wait for audio to finish, then release lock and optionally cleanup
+# Wait for audio to finish, then release lock (flock released on fd close) and optionally cleanup
 if [[ "$SAVE_AUDIO" == "true" ]]; then
-  (sleep $DURATION; rm -f "$LOCK_FILE") &
+  (sleep $DURATION; exec 9>&-) &
   echo "🎵 Saved to: $TEMP_FILE"
 else
-  (sleep $DURATION; rm -f "$LOCK_FILE" "$TEMP_FILE") &
+  (sleep $DURATION; exec 9>&-; rm -f "$TEMP_FILE") &
   echo "🎵 Audio played (not saved)"
 fi
 disown

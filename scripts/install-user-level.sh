@@ -71,8 +71,8 @@ if [[ "$(uname)" == "Linux" ]] && command -v systemctl &>/dev/null; then
   if [[ -f "$PACKAGE_DIR/systemd/piper-tts.service" ]]; then
     mkdir -p "$HOME/.config/systemd/user"
 
-    # Update paths in service file to user's home
-    sed "s|/home/president|$HOME|g" "$PACKAGE_DIR/systemd/piper-tts.service" > "$HOME/.config/systemd/user/piper-tts.service"
+    # Update paths in service file to user's home and UID
+    sed -e "s|/home/president|$HOME|g" -e "s|/run/user/1000|/run/user/$(id -u)|g" "$PACKAGE_DIR/systemd/piper-tts.service" > "$HOME/.config/systemd/user/piper-tts.service"
 
     systemctl --user daemon-reload 2>/dev/null || true
     echo "  Systemd service installed"

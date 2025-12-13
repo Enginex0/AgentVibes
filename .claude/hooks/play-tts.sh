@@ -83,8 +83,9 @@ if [[ -z "$TEXT" ]]; then
   exit 1
 fi
 
-# Security: Validate voice override doesn't contain dangerous characters
-if [[ -n "$VOICE_OVERRIDE" ]] && [[ "$VOICE_OVERRIDE" =~ [';|&$`<>(){}'] ]]; then
+# Security: Validate voice override uses allowlist (only safe characters)
+# Voice names should only contain alphanumeric, underscore, hyphen, period
+if [[ -n "$VOICE_OVERRIDE" ]] && ! [[ "$VOICE_OVERRIDE" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
   echo "Error: Invalid characters in voice parameter" >&2
   exit 1
 fi

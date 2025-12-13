@@ -50,8 +50,10 @@
 get_provider_config_path() {
   local provider_file
 
-  # Check project-local first
-  if [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -d "$CLAUDE_PROJECT_DIR/.claude" ]]; then
+  # Check for user-level mode first (single source of truth)
+  if [[ -f "$HOME/.claude/agentvibes-user-level" ]]; then
+    provider_file="$HOME/.claude/tts-provider.txt"
+  elif [[ -n "$CLAUDE_PROJECT_DIR" ]] && [[ -d "$CLAUDE_PROJECT_DIR/.claude" ]]; then
     provider_file="$CLAUDE_PROJECT_DIR/.claude/tts-provider.txt"
   else
     # Search up directory tree for .claude/
