@@ -274,7 +274,7 @@ list_downloaded_voices() {
       local file_size
       file_size=$(du -h "$onnx_file" | cut -f1)
       echo "  • $voice_name ($file_size)"
-      ((count++))
+      count=$((count + 1))
     fi
   done
   shopt -u nullglob

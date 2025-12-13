@@ -43,6 +43,7 @@ use or other dealings in the software.
 import asyncio
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -161,8 +162,9 @@ class AgentVibesServer:
 
                     # Use temp file indirection to bypass LINE_MAX (2048 byte) limit
                     # Same technique as bash daemon: write JSON to temp file, send filename to FIFO
-                    import time
-                    temp_msg = os.path.expanduser(f"~/.claude/piper-daemon/msg-{int(time.time() * 1e9)}.json")
+                    daemon_dir = os.path.expanduser("~/.claude/piper-daemon")
+                    fd, temp_msg = tempfile.mkstemp(suffix='.json', prefix='msg-', dir=daemon_dir)
+                    os.close(fd)
                     with open(temp_msg, 'w') as tf:
                         json.dump(payload, tf)
                     # Use subprocess to write to FIFO (mimics bash behavior exactly)

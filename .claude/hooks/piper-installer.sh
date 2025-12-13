@@ -110,6 +110,7 @@ if [[ "$IS_MACOS" == true ]]; then
   # Download and extract
   echo "📥 Downloading Piper from: $PIPER_URL"
   TEMP_DIR=$(mktemp -d)
+  trap 'rm -rf "$TEMP_DIR" 2>/dev/null' EXIT
   cd "$TEMP_DIR"
 
   if curl -L "$PIPER_URL" | tar -xz; then

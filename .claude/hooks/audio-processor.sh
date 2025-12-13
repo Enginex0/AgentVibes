@@ -305,14 +305,14 @@ main() {
     # Parse config (format: NAME|EFFECTS|BACKGROUND|VOLUME)
     IFS='|' read -r _ sox_effects background_file bg_volume <<< "$config"
 
-    # Temporary files (using explicit paths to avoid unbound variable issues)
+    # Temporary files using mktemp for security
     local temp_effects
     local temp_final
-    temp_effects="/tmp/agentvibes-effects-$$.wav"
-    temp_final="/tmp/agentvibes-final-$$.wav"
+    temp_effects=$(mktemp /tmp/agentvibes-effects-XXXXXX.wav)
+    temp_final=$(mktemp /tmp/agentvibes-final-XXXXXX.wav)
 
-    # Clean up on exit using explicit paths
-    trap 'rm -f /tmp/agentvibes-effects-'"$$"'.wav /tmp/agentvibes-final-'"$$"'.wav' EXIT
+    # Clean up on exit
+    trap 'rm -f "$temp_effects" "$temp_final"' EXIT
 
     # Step 1: Apply sox effects
     if [[ -n "$sox_effects" ]]; then

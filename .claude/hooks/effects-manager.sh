@@ -89,31 +89,36 @@ set_reverb() {
         # Create temp file
         local temp_file="${CONFIG_FILE}.tmp"
 
-        # Process each line
-        while IFS='|' read -r agent sox_effects bg_file bg_vol || [[ -n "$agent" ]]; do
-            # Skip comments and empty lines
-            if [[ "$agent" =~ ^# ]] || [[ -z "$agent" ]]; then
-                echo "$agent|$sox_effects|$bg_file|$bg_vol" >> "$temp_file"
-                continue
-            fi
+        # Use flock to prevent config file race
+        (
+            flock -x -w 5 200 || { echo "Warning: Could not acquire config lock" >&2; return 1; }
 
-            # Remove existing reverb from sox effects
-            local new_effects=$(echo "$sox_effects" | sed -E 's/reverb [0-9]+ [0-9]+ [0-9]+//g' | sed 's/  */ /g' | sed 's/^ //;s/ $//')
-
-            # Add new reverb if not off
-            if [[ -n "$reverb_effect" ]]; then
-                if [[ -n "$new_effects" ]]; then
-                    new_effects="$reverb_effect $new_effects"
-                else
-                    new_effects="$reverb_effect"
+            # Process each line
+            while IFS='|' read -r agent sox_effects bg_file bg_vol || [[ -n "$agent" ]]; do
+                # Skip comments and empty lines
+                if [[ "$agent" =~ ^# ]] || [[ -z "$agent" ]]; then
+                    echo "$agent|$sox_effects|$bg_file|$bg_vol" >> "$temp_file"
+                    continue
                 fi
-            fi
 
-            echo "${agent}|${new_effects}|${bg_file}|${bg_vol}" >> "$temp_file"
-        done < "$CONFIG_FILE"
+                # Remove existing reverb from sox effects
+                local new_effects=$(echo "$sox_effects" | sed -E 's/reverb [0-9]+ [0-9]+ [0-9]+//g' | sed 's/  */ /g' | sed 's/^ //;s/ $//')
 
-        # Replace original with temp
-        mv "$temp_file" "$CONFIG_FILE"
+                # Add new reverb if not off
+                if [[ -n "$reverb_effect" ]]; then
+                    if [[ -n "$new_effects" ]]; then
+                        new_effects="$reverb_effect $new_effects"
+                    else
+                        new_effects="$reverb_effect"
+                    fi
+                fi
+
+                echo "${agent}|${new_effects}|${bg_file}|${bg_vol}" >> "$temp_file"
+            done < "$CONFIG_FILE"
+
+            # Replace original with temp
+            mv "$temp_file" "$CONFIG_FILE"
+        ) 200>"${CONFIG_FILE}.lock"
 
         echo "✅ Reverb set to '$level' for all agents"
     else
