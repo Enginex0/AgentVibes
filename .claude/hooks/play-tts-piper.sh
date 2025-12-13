@@ -329,9 +329,9 @@ fi
 # @exitcode 0=success, 4=synthesis error
 # @sideeffects Creates audio file
 # @edgecases Handles piper errors, invalid models, multi-speaker voices
-if [[ -n "$SPEAKER_ID" ]]; then
+if [[ -n "${SPEAKER_ID:-}" ]]; then
   # Multi-speaker voice: Pass speaker ID
-  echo "$TEXT" | piper --model "$VOICE_PATH" --speaker "$SPEAKER_ID" --length-scale "$SPEECH_RATE" --output_file "$TEMP_FILE" 2>/dev/null
+  echo "$TEXT" | piper --model "$VOICE_PATH" --speaker "${SPEAKER_ID}" --length-scale "$SPEECH_RATE" --output_file "$TEMP_FILE" 2>/dev/null
 else
   # Single-speaker voice
   echo "$TEXT" | piper --model "$VOICE_PATH" --length-scale "$SPEECH_RATE" --output_file "$TEMP_FILE" 2>/dev/null
