@@ -22,23 +22,13 @@ if [[ ! -f "$SCRIPT_DIR/play-tts.sh" ]]; then
   exit 0
 fi
 
-# Auto-start piper daemon for instant TTS (45x faster)
-DAEMON_SCRIPT="$HOME/.claude/scripts/piper-daemon.sh"
-DAEMON_PID_FILE="$HOME/.claude/piper-daemon/piper.pid"
+# Check if piper daemon is running (systemd should auto-start on login)
+# Don't block session start - just check and advise
 DAEMON_FIFO="$HOME/.claude/piper-daemon/input.fifo"
-if [[ -x "$DAEMON_SCRIPT" ]]; then
-  if [[ ! -f "$DAEMON_PID_FILE" ]] || ! kill -0 "$(cat "$DAEMON_PID_FILE" 2>/dev/null)" 2>/dev/null; then
-    # Start daemon silently in background
-    nohup "$DAEMON_SCRIPT" start >/dev/null 2>&1 &
-
-    # Wait for daemon to be ready (FIFO exists = model warmed up)
-    # Max wait 10 seconds to avoid blocking session start too long
-    for i in {1..20}; do
-      if [[ -p "$DAEMON_FIFO" ]]; then
-        break
-      fi
-      sleep 0.5
-    done
+if [[ ! -p "$DAEMON_FIFO" ]]; then
+  # Daemon not running - try systemd start (non-blocking)
+  if command -v systemctl &>/dev/null; then
+    systemctl --user start piper-tts 2>/dev/null &
   fi
 fi
 

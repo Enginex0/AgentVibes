@@ -114,9 +114,18 @@ if [[ "$(uname)" == "Linux" ]] && command -v systemctl &>/dev/null; then
     sed -e "s|/home/president|$HOME|g" -e "s|/run/user/1000|/run/user/$(id -u)|g" "$PACKAGE_DIR/systemd/piper-tts.service" > "$HOME/.config/systemd/user/piper-tts.service"
 
     systemctl --user daemon-reload 2>/dev/null || true
-    echo "  Systemd service installed"
-    echo "  Start with: systemctl --user start piper-tts"
-    echo "  Enable auto-start: systemctl --user enable piper-tts"
+
+    # Enable auto-start on login (instant TTS without waiting for Claude)
+    systemctl --user enable piper-tts 2>/dev/null || true
+    echo "  Systemd service installed and enabled"
+
+    # Start daemon now if not already running
+    if ! systemctl --user is-active piper-tts &>/dev/null; then
+      systemctl --user start piper-tts 2>/dev/null || true
+      echo "  Daemon started (warming up model...)"
+    else
+      echo "  Daemon already running"
+    fi
   fi
 else
   echo "  Skipped (not Linux or systemctl not available)"
