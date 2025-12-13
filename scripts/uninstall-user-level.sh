@@ -79,20 +79,14 @@ else
   echo "  Marker not found"
 fi
 
-# Step 4: Clean up AgentVibes-specific files (preserve user customizations)
+# Step 4: Clean up ALL AgentVibes files (complete removal)
 echo "[4/4] Cleaning up AgentVibes files..."
 
-# Remove daemon scripts (these are AgentVibes-specific)
-if [[ -f "$USER_CLAUDE/scripts/piper-worker-enhanced.sh" ]]; then
+# Remove daemon scripts
+if [[ -d "$USER_CLAUDE/scripts" ]]; then
   rm -f "$USER_CLAUDE/scripts/piper-worker-enhanced.sh"
   rm -f "$USER_CLAUDE/scripts/piper-daemon.sh"
   echo "  Removed daemon scripts"
-fi
-
-# Remove evil laugh audio (AgentVibes-specific)
-if [[ -f "$USER_CLAUDE/audio/evil-laugh.wav" ]]; then
-  rm -f "$USER_CLAUDE/audio/evil-laugh.wav"
-  echo "  Removed evil-laugh.wav"
 fi
 
 # Remove piper-daemon directory
@@ -101,18 +95,106 @@ if [[ -d "$USER_CLAUDE/piper-daemon" ]]; then
   echo "  Removed piper-daemon directory"
 fi
 
-# Note: We preserve hooks, personalities, and config files
-# as they may have been customized by the user
+# Remove audio directory (AgentVibes sounds)
+if [[ -d "$USER_CLAUDE/audio" ]]; then
+  rm -rf "$USER_CLAUDE/audio"
+  echo "  Removed audio directory"
+fi
+
+# Remove personalities directory
+if [[ -d "$USER_CLAUDE/personalities" ]]; then
+  rm -rf "$USER_CLAUDE/personalities"
+  echo "  Removed personalities directory"
+fi
+
+# Remove TTS config files
+rm -f "$USER_CLAUDE/tts-voice.txt" \
+      "$USER_CLAUDE/tts-personality.txt" \
+      "$USER_CLAUDE/tts-provider.txt" \
+      "$USER_CLAUDE/tts-verbosity.txt" \
+      "$USER_CLAUDE/tts-skip-padding.txt" \
+      "$USER_CLAUDE/tts-speed.txt" \
+      "$USER_CLAUDE/tts-target-speed.txt" \
+      "$USER_CLAUDE/tts-learn-mode.txt" \
+      "$USER_CLAUDE/tts-main-language.txt" \
+      "$USER_CLAUDE/tts-target-language.txt" \
+      2>/dev/null
+echo "  Removed TTS config files"
+
+# Remove AgentVibes config files
+if [[ -d "$USER_CLAUDE/config" ]]; then
+  rm -f "$USER_CLAUDE/config/audio-effects.cfg" \
+        "$USER_CLAUDE/config/background-music-enabled.txt" \
+        "$USER_CLAUDE/config/background-music-volume.txt" \
+        "$USER_CLAUDE/config/background-music-default.txt" \
+        2>/dev/null
+  echo "  Removed AgentVibes config files"
+fi
+
+# Remove ALL AgentVibes hooks (by specific filenames to avoid removing non-AgentVibes hooks)
+echo "[5/5] Removing AgentVibes hooks..."
+HOOKS_DIR="$USER_CLAUDE/hooks"
+if [[ -d "$HOOKS_DIR" ]]; then
+  # List of AgentVibes hook files to remove
+  AGENTVIBES_HOOKS=(
+    "README-TTS-QUEUE.md"
+    "audio-processor.sh"
+    "background-music-manager.sh"
+    "bmad-speak-enhanced.sh"
+    "bmad-speak.sh"
+    "bmad-tts-injector.sh"
+    "bmad-voice-manager.sh"
+    "configure-rdp-mode.sh"
+    "download-extra-voices.sh"
+    "effects-manager.sh"
+    "github-star-reminder.sh"
+    "language-manager.sh"
+    "learn-manager.sh"
+    "macos-voice-manager.sh"
+    "migrate-background-music.sh"
+    "migrate-to-agentvibes.sh"
+    "optimize-background-music.sh"
+    "personality-manager.sh"
+    "piper-download-voices.sh"
+    "piper-installer.sh"
+    "piper-multispeaker-registry.sh"
+    "piper-voice-manager.sh"
+    "play-tts-elevenlabs.sh"
+    "play-tts-enhanced.sh"
+    "play-tts-macos.sh"
+    "play-tts-piper.sh"
+    "play-tts.sh"
+    "prepare-release.sh"
+    "provider-commands.sh"
+    "provider-manager.sh"
+    "replay-target-audio.sh"
+    "requirements.txt"
+    "sentiment-manager.sh"
+    "session-start-mcp-tts.sh"
+    "session-start-tts.sh"
+    "speed-manager.sh"
+    "translate-manager.sh"
+    "translator.py"
+    "tts-queue-worker.sh"
+    "tts-queue.sh"
+    "verbosity-manager.sh"
+    "voice-manager.sh"
+    "voices-config.sh"
+  )
+
+  HOOKS_REMOVED=0
+  for hook in "${AGENTVIBES_HOOKS[@]}"; do
+    if [[ -f "$HOOKS_DIR/$hook" ]]; then
+      rm -f "$HOOKS_DIR/$hook"
+      ((HOOKS_REMOVED++))
+    fi
+  done
+  echo "  Removed $HOOKS_REMOVED AgentVibes hook files"
+fi
+
 echo ""
 echo "=== Uninstall Complete ==="
 echo ""
-echo "The following were preserved (may contain user customizations):"
-echo "  - $USER_CLAUDE/hooks/"
-echo "  - $USER_CLAUDE/personalities/"
-echo "  - $USER_CLAUDE/tts-*.txt config files"
-echo ""
-echo "To fully remove all AgentVibes files, manually delete:"
-echo "  rm -rf $USER_CLAUDE/hooks/"
-echo "  rm -rf $USER_CLAUDE/personalities/"
-echo "  rm -f $USER_CLAUDE/tts-*.txt"
+echo "All AgentVibes files have been removed."
+echo "Non-AgentVibes Claude hooks have been preserved."
 echo ""
