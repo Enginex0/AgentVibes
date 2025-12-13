@@ -14,17 +14,20 @@ USER_CLAUDE="$HOME/.claude"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PACKAGE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+AGGREGATOR_CONFIG="$USER_CLAUDE/mcp-aggregator/config.json"
+MCP_SERVER="$PACKAGE_DIR/bin/mcp-server.js"
+
 echo "=== AgentVibes User-Level Setup ==="
 echo "Package: $PACKAGE_DIR"
 echo "Target: $USER_CLAUDE"
 echo ""
 
 # Create directory structure
-echo "[1/7] Creating directory structure..."
+echo "[1/8] Creating directory structure..."
 mkdir -p "$USER_CLAUDE"/{hooks,personalities,config,audio,scripts,piper-daemon}
 
 # Copy hooks (already patched with user-level support)
-echo "[2/7] Installing hooks..."
+echo "[2/8] Installing hooks..."
 if [[ -d "$PACKAGE_DIR/.claude/hooks" ]]; then
   cp -r "$PACKAGE_DIR/.claude/hooks/"* "$USER_CLAUDE/hooks/" 2>/dev/null || true
   chmod +x "$USER_CLAUDE/hooks/"*.sh 2>/dev/null || true
@@ -32,14 +35,14 @@ if [[ -d "$PACKAGE_DIR/.claude/hooks" ]]; then
 fi
 
 # Copy personalities (with voice assignments)
-echo "[3/7] Installing personalities..."
+echo "[3/8] Installing personalities..."
 if [[ -d "$PACKAGE_DIR/.claude/personalities" ]]; then
   cp -r "$PACKAGE_DIR/.claude/personalities/"* "$USER_CLAUDE/personalities/" 2>/dev/null || true
   echo "  Copied $(ls "$USER_CLAUDE/personalities/" 2>/dev/null | wc -l) personality files"
 fi
 
 # Copy enhanced scripts
-echo "[4/7] Installing daemon scripts..."
+echo "[4/8] Installing daemon scripts..."
 if [[ -f "$PACKAGE_DIR/scripts/piper-worker-enhanced.sh" ]]; then
   cp "$PACKAGE_DIR/scripts/piper-worker-enhanced.sh" "$USER_CLAUDE/scripts/"
   cp "$PACKAGE_DIR/scripts/piper-daemon.sh" "$USER_CLAUDE/scripts/"
@@ -48,14 +51,14 @@ if [[ -f "$PACKAGE_DIR/scripts/piper-worker-enhanced.sh" ]]; then
 fi
 
 # Copy audio assets
-echo "[5/7] Installing audio assets..."
+echo "[5/8] Installing audio assets..."
 if [[ -d "$PACKAGE_DIR/audio" ]]; then
   cp -r "$PACKAGE_DIR/audio/"* "$USER_CLAUDE/audio/" 2>/dev/null || true
   echo "  Copied audio files"
 fi
 
 # Create default configs (only if not exist - preserve user settings)
-echo "[6/7] Setting up default configuration..."
+echo "[6/8] Setting up default configuration..."
 [[ ! -f "$USER_CLAUDE/tts-provider.txt" ]] && echo "piper" > "$USER_CLAUDE/tts-provider.txt" && echo "  Set provider: piper"
 [[ ! -f "$USER_CLAUDE/tts-voice.txt" ]] && echo "en_US-lessac-medium" > "$USER_CLAUDE/tts-voice.txt" && echo "  Set voice: en_US-lessac-medium"
 [[ ! -f "$USER_CLAUDE/tts-verbosity.txt" ]] && echo "medium" > "$USER_CLAUDE/tts-verbosity.txt" && echo "  Set verbosity: medium"
@@ -66,7 +69,7 @@ touch "$USER_CLAUDE/agentvibes-user-level"
 echo "  User-level mode enabled"
 
 # Install systemd service (Linux only)
-echo "[7/7] Installing systemd service..."
+echo "[7/8] Installing systemd service..."
 if [[ "$(uname)" == "Linux" ]] && command -v systemctl &>/dev/null; then
   if [[ -f "$PACKAGE_DIR/systemd/piper-tts.service" ]]; then
     mkdir -p "$HOME/.config/systemd/user"
@@ -81,6 +84,67 @@ if [[ "$(uname)" == "Linux" ]] && command -v systemctl &>/dev/null; then
   fi
 else
   echo "  Skipped (not Linux or systemctl not available)"
+fi
+
+# Configure MCP Server (auto-detect aggregator vs direct)
+echo "[8/8] Configuring MCP server..."
+MCP_CONFIGURED=false
+
+if [[ -f "$AGGREGATOR_CONFIG" ]]; then
+  # Aggregator detected - add to aggregator config
+  echo "  MCP Aggregator detected"
+
+  # Check if jq is available for JSON manipulation
+  if command -v jq &>/dev/null; then
+    # Check if agentvibes already configured
+    if jq -e '.servers.agentvibes' "$AGGREGATOR_CONFIG" &>/dev/null; then
+      echo "  AgentVibes already configured in aggregator"
+      MCP_CONFIGURED=true
+    else
+      # Add agentvibes to aggregator config
+      TEMP_CONFIG=$(mktemp)
+      jq --arg mcp "$MCP_SERVER" '.servers.agentvibes = {
+        "command": "node",
+        "args": [$mcp],
+        "env": {}
+      }' "$AGGREGATOR_CONFIG" > "$TEMP_CONFIG" && mv "$TEMP_CONFIG" "$AGGREGATOR_CONFIG"
+
+      if [[ $? -eq 0 ]]; then
+        echo "  Added AgentVibes to aggregator config"
+        echo "  NOTE: Reload aggregator in Claude to activate (use reload_config tool)"
+        MCP_CONFIGURED=true
+      else
+        echo "  Warning: Failed to update aggregator config"
+      fi
+    fi
+  else
+    echo "  Warning: jq not installed, cannot update aggregator config"
+    echo "  Install jq or manually add AgentVibes to $AGGREGATOR_CONFIG"
+  fi
+elif command -v claude &>/dev/null; then
+  # No aggregator - use Claude CLI for direct MCP setup
+  echo "  No aggregator found, using Claude CLI"
+
+  # Check if already configured
+  if claude mcp get agentvibes &>/dev/null 2>&1; then
+    echo "  AgentVibes MCP already configured"
+    MCP_CONFIGURED=true
+  else
+    # Add via Claude CLI (user scope for global availability)
+    if claude mcp add --transport stdio --scope user agentvibes -- node "$MCP_SERVER" 2>/dev/null; then
+      echo "  Added AgentVibes MCP server (user scope)"
+      MCP_CONFIGURED=true
+    else
+      echo "  Warning: Failed to add MCP server via Claude CLI"
+    fi
+  fi
+else
+  echo "  Warning: Neither aggregator nor Claude CLI found"
+  echo "  Manual MCP setup required"
+fi
+
+if [[ "$MCP_CONFIGURED" == "true" ]]; then
+  echo "  MCP server configured successfully"
 fi
 
 echo ""
