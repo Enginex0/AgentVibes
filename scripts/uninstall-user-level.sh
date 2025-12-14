@@ -86,6 +86,9 @@ echo "[4/5] Cleaning up AgentVibes files..."
 if [[ -d "$USER_CLAUDE/scripts" ]]; then
   rm -f "$USER_CLAUDE/scripts/piper-worker-enhanced.sh"
   rm -f "$USER_CLAUDE/scripts/piper-daemon.sh"
+  rm -f "$USER_CLAUDE/scripts/piper-queue-worker.sh"
+  rm -f "$USER_CLAUDE/scripts/piper-worker.sh"
+  rm -f "$USER_CLAUDE/scripts/mcp-tts-play.sh"
   echo "  Removed daemon scripts"
 fi
 
@@ -94,6 +97,21 @@ if [[ -d "$USER_CLAUDE/piper-daemon" ]]; then
   rm -rf "$USER_CLAUDE/piper-daemon"
   echo "  Removed piper-daemon directory"
 fi
+
+# Remove piper-queue directory
+if [[ -d "$USER_CLAUDE/piper-queue" ]]; then
+  rm -rf "$USER_CLAUDE/piper-queue"
+  echo "  Removed piper-queue directory"
+fi
+
+# Remove piper-voices directory (downloaded voice models)
+if [[ -d "$USER_CLAUDE/piper-voices" ]]; then
+  rm -rf "$USER_CLAUDE/piper-voices"
+  echo "  Removed piper-voices directory"
+fi
+
+# Remove piper-voices-dir.txt
+rm -f "$USER_CLAUDE/piper-voices-dir.txt" 2>/dev/null
 
 # Remove MCP server directory (stable location for server.py)
 if [[ -d "$USER_CLAUDE/mcp-server" ]]; then
@@ -133,6 +151,11 @@ if [[ -d "$USER_CLAUDE/config" ]]; then
         "$USER_CLAUDE/config/background-music-enabled.txt" \
         "$USER_CLAUDE/config/background-music-volume.txt" \
         "$USER_CLAUDE/config/background-music-default.txt" \
+        "$USER_CLAUDE/config/tts-save-audio.txt" \
+        "$USER_CLAUDE/config/tts-speech-rate.txt" \
+        "$USER_CLAUDE/config/tts-target-speech-rate.txt" \
+        "$USER_CLAUDE/config/piper-speech-rate.txt" \
+        "$USER_CLAUDE/config/piper-target-speech-rate.txt" \
         2>/dev/null
   echo "  Removed AgentVibes config files"
 fi
@@ -186,6 +209,7 @@ if [[ -d "$HOOKS_DIR" ]]; then
     "verbosity-manager.sh"
     "voice-manager.sh"
     "voices-config.sh"
+    "logging-utils.sh"
   )
 
   HOOKS_REMOVED=0

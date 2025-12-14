@@ -56,6 +56,8 @@ echo "[5/10] Installing daemon scripts..."
 if [[ -f "$PACKAGE_DIR/scripts/piper-worker-enhanced.sh" ]]; then
   cp "$PACKAGE_DIR/scripts/piper-worker-enhanced.sh" "$USER_CLAUDE/scripts/"
   cp "$PACKAGE_DIR/scripts/piper-daemon.sh" "$USER_CLAUDE/scripts/"
+  cp "$PACKAGE_DIR/scripts/piper-queue-worker.sh" "$USER_CLAUDE/scripts/" 2>/dev/null || true
+  cp "$PACKAGE_DIR/scripts/piper-worker.sh" "$USER_CLAUDE/scripts/" 2>/dev/null || true
   chmod +x "$USER_CLAUDE/scripts/"*.sh 2>/dev/null || true
   echo "  Installed piper daemon scripts"
 fi
