@@ -64,8 +64,12 @@ _config_exists() {
   [[ -f "$HOME/.claude/$1" ]] || [[ -f "$PROJECT_ROOT/.claude/$1" ]]
 }
 
-# Source logging utilities (disable with AGENTVIBES_LOGGING=false for ~10ms speedup)
-if [[ "${AGENTVIBES_LOGGING:-true}" != "false" ]] && [[ -f "$SCRIPT_DIR/logging-utils.sh" ]]; then
+# Source logging utilities (disable with AGENTVIBES_LOGGING=false or config file for ~10ms speedup)
+# Check config file first, then env var (default: false for performance)
+LOGGING_ENABLED="${AGENTVIBES_LOGGING:-}"
+[[ -z "$LOGGING_ENABLED" ]] && [[ -f "$HOME/.claude/config/tts-logging.txt" ]] && LOGGING_ENABLED=$(cat "$HOME/.claude/config/tts-logging.txt")
+[[ -z "$LOGGING_ENABLED" ]] && LOGGING_ENABLED="false"
+if [[ "$LOGGING_ENABLED" == "true" ]] && [[ -f "$SCRIPT_DIR/logging-utils.sh" ]]; then
   source "$SCRIPT_DIR/logging-utils.sh"
   av_log_init "play-tts"
   av_log_start "TTS_REQUEST"

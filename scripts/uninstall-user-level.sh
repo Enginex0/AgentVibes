@@ -174,6 +174,7 @@ if [[ -d "$USER_CLAUDE/config" ]]; then
         "$USER_CLAUDE/config/background-music-volume.txt" \
         "$USER_CLAUDE/config/background-music-default.txt" \
         "$USER_CLAUDE/config/tts-save-audio.txt" \
+        "$USER_CLAUDE/config/tts-logging.txt" \
         "$USER_CLAUDE/config/tts-speech-rate.txt" \
         "$USER_CLAUDE/config/tts-target-speech-rate.txt" \
         "$USER_CLAUDE/config/piper-speech-rate.txt" \

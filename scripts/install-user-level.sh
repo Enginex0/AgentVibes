@@ -101,6 +101,7 @@ echo "[8/10] Setting up default configuration..."
 [[ ! -f "$USER_CLAUDE/tts-voice.txt" ]] && echo "en_GB-jenny_dioco-medium" > "$USER_CLAUDE/tts-voice.txt" && echo "  Set voice: en_GB-jenny_dioco-medium (Jenny)"
 [[ ! -f "$USER_CLAUDE/tts-verbosity.txt" ]] && echo "medium" > "$USER_CLAUDE/tts-verbosity.txt" && echo "  Set verbosity: medium"
 [[ ! -f "$USER_CLAUDE/config/tts-save-audio.txt" ]] && echo "false" > "$USER_CLAUDE/config/tts-save-audio.txt" && echo "  Set save-audio: false"
+[[ ! -f "$USER_CLAUDE/config/tts-logging.txt" ]] && echo "false" > "$USER_CLAUDE/config/tts-logging.txt" && echo "  Set logging: false"
 
 # Enable user-level mode (marker file)
 touch "$USER_CLAUDE/agentvibes-user-level"
