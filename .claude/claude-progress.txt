@@ -1,86 +1,77 @@
 # AgentVibes Development Progress Log
 
-## Session: December 14, 2025 (A+ Fixes Session)
+## Session: December 14, 2025 (MCP Default + Auto-Install)
 
 ### Summary
-Executed all A+ audit fixes, fixed installer/uninstaller bugs, verified with fresh install.
+Made MCP the default TTS mode with zero-delay symlink switching. Added auto voice download to installer. Fixed uninstaller to clean all traces.
 
 ### What Was Done
 
-1. **Executed A+ Fixes from Plan File (10 fixes)**
-   - C1: JSON escaping with jq in play-tts-piper.sh
-   - C2: JSON parsing optimized (5 jq → 1 with @tsv) in piper-queue-worker.sh
-   - S1: File size limit (100KB) + symlink rejection
-   - S2: Queue size limit (100 files) with fallback
-   - S3: Explicit 700 permissions on queue directories
-   - P1: Replaced cat with $(<file) bash builtin
-   - P2: Cached date format millisecond support detection
-   - L1: inotifywait error detection and logging
-   - L2: Model warmup verification (exits on failure)
+1. **MCP as Default TTS Mode**
+   - Created session-start-mcp-tts.sh with full features (verbosity, logging, style)
+   - Renamed session-start-tts.sh to session-start-bash-tts.sh
+   - session-start-tts.sh is now a symlink (kernel-resolved, zero overhead)
+   - Installer auto-detects aggregator and sets appropriate symlink
 
-2. **Implemented Minor Suggestions from Audits**
-   - Added queue count limit at daemon level (defense-in-depth)
-   - Changed inotifywait exit from `break` to `exit 1` for systemd detection
+2. **Updated MCP Server (server.py)**
+   - Changed from old FIFO path to new file queue (~/.claude/piper-queue/)
+   - Returns "⚡ MCP TTS via queue" when using fast path
+   - Falls back to subprocess if queue not available
 
-3. **Deployed 4 Audit Agents for Verification**
-   - Security: A (was B+)
-   - Code Quality: A+ (was B+)
-   - Logic Flow: A- (maintained)
-   - Performance: A+ (was B+)
+3. **Performance Testing**
+   - Bash mode: ~160-290ms (avg ~202ms)
+   - MCP mode: ~50-100ms
+   - Raw queue write: ~0.3ms
 
-4. **Fixed Installer Bug**
-   - install-user-level.sh wasn't copying piper-queue-worker.sh
-   - Added: piper-queue-worker.sh, piper-worker.sh
+4. **Installer Improvements (12 steps now)**
+   - Step 9: Auto-download default voice model (60MB)
+   - Step 12: Create TTS mode symlink based on aggregator
+   - Simplified "Next steps" - most setup is automatic now
 
-5. **Updated Uninstaller for Complete Cleanup**
-   - Added: piper-queue-worker.sh, piper-worker.sh, mcp-tts-play.sh
-   - Added: piper-queue directory
-   - Added: piper-voices directory (downloaded voice models)
-   - Added: piper-voices-dir.txt
-   - Added: tts-save-audio.txt and speech rate configs
-   - Added: logging-utils.sh to hooks list
+5. **Uninstaller Improvements**
+   - Added: agentvibes-patches directory
+   - Added: mcp-aggregator/servers/agentvibes cache
+   - Added: agentvibes wrapper scripts
+   - Added: agentvibes logs directory
+   - Added: session-start-bash-tts.sh, tts-mode-toggle.sh hooks
 
-6. **Clean Uninstall and Fresh Install**
-   - Verified zero traces after uninstall
-   - Fresh install successful
-   - Voice model downloaded
-   - Service running correctly
-
-7. **Verified New Session Startup**
-   - Zero latency on new session
-   - Script return time: ~160ms (was 5000ms)
-   - JSON parsing: 6-7ms (was 25ms)
-   - All TTS requests processed correctly
+6. **Toggle Script**
+   - Created tts-mode-toggle.sh for manual mode switching
+   - Usage: ./tts-mode-toggle.sh [mcp|bash|status]
 
 ### Commits Made This Session
 ```
-2e01db75 fix(quality): A+ audit fixes for file queue TTS
-1d610bdd fix(installer): Add piper-queue-worker.sh to install/uninstall scripts
+3af067f3 fix(installer): Auto-download voice model + complete uninstall cleanup
+abe795b0 feat(tts): MCP as default with zero-delay symlink switching
 ```
 
 ### Files Modified
-- scripts/piper-queue-worker.sh (8 fixes)
-- .claude/hooks/play-tts-piper.sh (3 fixes)
-- scripts/install-user-level.sh (added queue worker copy)
-- scripts/uninstall-user-level.sh (complete cleanup)
+- .claude/hooks/session-start-bash-tts.sh (renamed)
+- .claude/hooks/session-start-mcp-tts.sh (full features)
+- .claude/hooks/tts-mode-toggle.sh (NEW)
+- mcp-server/server.py (file queue support)
+- scripts/install-user-level.sh (+voice download, +12 steps)
+- scripts/uninstall-user-level.sh (+7 cleanup items)
 
-### Final Performance Metrics
-- Script return: 5000ms → 160ms (97% improvement)
-- JSON parsing: 25ms → 7ms (72% improvement)
-- Queue write: ~22ms
-- Non-blocking: TRUE
+### Architecture
+
+```
+~/.claude/hooks/
+├── session-start-bash-tts.sh     # Bash version (fallback)
+├── session-start-mcp-tts.sh      # MCP version (default, faster)
+└── session-start-tts.sh → symlink to one of above
+```
+
+Installer logic:
+- If aggregator detected + MCP configured → symlink to MCP
+- If no aggregator → symlink to Bash
 
 ### System Status
 - All commits pushed to origin
-- Service running and healthy
-- Fresh install verified
-- Production-ready with A+ grade
+- 29 commits ahead of upstream/master
+- MCP mode is now default for new installs
 
-### Previous Session Summary (for context)
-- Replaced FIFO with file-based queue using inotifywait
-- Script return improved from 5000ms to 162-235ms
-- Deployed 4 audit agents (B+/B+/A-/B+)
-- Created detailed fix plan
-
-### Total Commits to Fork
-27 commits ahead of upstream/master
+### Previous Session (for context)
+- Replaced FIFO with file-based queue (96% improvement)
+- Executed 10 A+ audit fixes
+- Final grades: A/A+/A-/A+

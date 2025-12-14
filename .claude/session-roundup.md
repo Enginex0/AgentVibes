@@ -1,7 +1,7 @@
 # AgentVibes Session Roundup
 
 **Date:** December 14, 2025
-**Status:** A+ Fixes Complete - All Systems Operational
+**Status:** MCP Default + Auto-Install Complete
 
 ---
 
@@ -9,67 +9,42 @@
 
 AgentVibes is a TTS (Text-to-Speech) system for Claude Code. This session:
 
-1. **Executed all A+ audit fixes** from the plan file (10 fixes)
-2. **Implemented minor suggestions** (queue limit at daemon, exit code fix)
-3. **Fixed installer bug** - wasn't copying piper-queue-worker.sh
-4. **Updated uninstaller** - complete cleanup of all AgentVibes traces
-5. **Verified with fresh install** - zero latency on new session startup
-6. **Re-ran 4 audit agents** - Security A, Code Quality A+, Logic A-, Performance A+
+1. **Made MCP the default TTS mode** - faster than Bash (~50-100ms vs ~160-290ms)
+2. **Implemented zero-delay symlink switching** - no runtime checks
+3. **Updated MCP server** to use file queue instead of old FIFO
+4. **Added auto voice download** to installer (60MB model)
+5. **Fixed uninstaller** to clean all traces (was missing 7+ items)
+6. **Pushed all changes** to GitHub
 
 ---
 
 ## Commits This Session
 
 ```
-2e01db75 fix(quality): A+ audit fixes for file queue TTS
-1d610bdd fix(installer): Add piper-queue-worker.sh to install/uninstall scripts
+3af067f3 fix(installer): Auto-download voice model + complete uninstall cleanup
+abe795b0 feat(tts): MCP as default with zero-delay symlink switching
 ```
 
 ---
 
-## A+ Fixes Implemented
+## Architecture: MCP vs Bash TTS
 
-### Critical (All Audits Flagged)
-- C1: JSON escaping with jq (handles newlines, tabs, control chars)
-- C2: JSON parsing optimized (5 jq calls → 1 with @tsv, saves ~20ms)
+```
+~/.claude/hooks/
+├── session-start-bash-tts.sh     # Bash version (fallback)
+├── session-start-mcp-tts.sh      # MCP version (default, faster)
+└── session-start-tts.sh → symlink (kernel-resolved, zero overhead)
+```
 
-### Security
-- S1: File size limit (100KB) + symlink rejection
-- S2: Queue size limit (100 files) with graceful fallback
-- S3: Explicit 700 permissions on queue directories
+**Installer logic:**
+- If aggregator detected + MCP configured → symlink to MCP
+- If no aggregator → symlink to Bash
 
-### Performance
-- P1: Replaced `cat` with `$(<file)` bash builtin
-- P2: Cached date format millisecond support detection
-
-### Logic Flow
-- L1: inotifywait error detection and logging
-- L2: Model warmup verification (exits on failure)
-
-### Minor Suggestions (Also Implemented)
-- Queue count limit at daemon level (defense-in-depth)
-- Exit code 1 on inotifywait failure (for systemd detection)
-
----
-
-## Final Audit Grades
-
-| Audit Type | Grade |
-|------------|-------|
-| Security | **A** |
-| Code Quality | **A+** |
-| Logic Flow | **A-** |
-| Performance | **A+** |
-
----
-
-## Performance Results
-
-| Metric | Before | After |
-|--------|--------|-------|
-| Script return time | 5000ms | **~160ms** |
-| JSON parsing | ~25ms | **6-7ms** |
-| Queue write | N/A | **~22ms** |
+**Performance:**
+| Mode | Latency |
+|------|---------|
+| MCP | ~50-100ms |
+| Bash | ~160-290ms |
 
 ---
 
@@ -77,10 +52,12 @@ AgentVibes is a TTS (Text-to-Speech) system for Claude Code. This session:
 
 | File | Changes |
 |------|---------|
-| `scripts/piper-queue-worker.sh` | 8 fixes (date cache, JSON opt, security, logic) |
-| `.claude/hooks/play-tts-piper.sh` | 3 fixes (JSON escaping, queue limit) |
-| `scripts/install-user-level.sh` | Added piper-queue-worker.sh copy |
-| `scripts/uninstall-user-level.sh` | Complete cleanup of all traces |
+| `.claude/hooks/session-start-bash-tts.sh` | Renamed from session-start-tts.sh |
+| `.claude/hooks/session-start-mcp-tts.sh` | Full features (verbosity, logging) |
+| `.claude/hooks/tts-mode-toggle.sh` | NEW - manual mode switching |
+| `mcp-server/server.py` | Updated to use file queue |
+| `scripts/install-user-level.sh` | +Auto voice download, +12 steps |
+| `scripts/uninstall-user-level.sh` | +7 cleanup items |
 
 ---
 
@@ -89,26 +66,34 @@ AgentVibes is a TTS (Text-to-Speech) system for Claude Code. This session:
 ```
 Branch: master
 Origin: github.com/Enginex0/AgentVibes
-Latest commit: 1d610bdd fix(installer): Add piper-queue-worker.sh to install/uninstall scripts
+Latest commit: 3af067f3 fix(installer): Auto-download voice model
 Pushed: Yes
+Commits ahead of upstream: 29
 ```
 
 ---
 
-## System Status
+## Installer Now Handles (Zero User Intervention)
 
-- Daemon: Running (piper-tts.service active)
-- TTS: Working (instant return, non-blocking)
-- Fresh install: Verified working
-- New session startup: Zero latency
+1. Directory structure
+2. Hooks (51 scripts)
+3. Personalities (21 files)
+4. Slash commands (56 files)
+5. Daemon scripts
+6. Audio assets
+7. MCP server
+8. Default config
+9. **Voice model download (NEW - 60MB)**
+10. Systemd service
+11. MCP aggregator config
+12. **TTS mode symlink (NEW - MCP default)**
 
 ---
 
 ## Next Session
 
-All planned work complete. System is production-ready with A+ grade.
-
-Potential future work:
+Potential work:
+- Test fresh install on clean system
 - Upstream PR to original AgentVibes repo
 - Additional voice models
 - Further optimizations if needed
