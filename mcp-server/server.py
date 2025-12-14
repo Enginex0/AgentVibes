@@ -361,8 +361,20 @@ class AgentVibesServer:
             self.VOICE_MANAGER_SCRIPT, ["switch", voice_name, "--silent"]
         )
         if result and "✅" in result:
-            # Daemon restart handled by voice-manager.sh (single source)
-            return f"✅ Voice switched to: {voice_name} (daemon restarted)"
+            # Restart piper-tts daemon to load new voice model
+            # Use bash with login shell to get proper user systemd access
+            restart_script = "systemctl --user restart piper-tts 2>/dev/null || pkill -f piper-queue-wor"
+            try:
+                restart_proc = await asyncio.create_subprocess_shell(
+                    restart_script,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    env={**os.environ, "HOME": os.path.expanduser("~"), "XDG_RUNTIME_DIR": f"/run/user/{os.getuid()}"}
+                )
+                await asyncio.wait_for(restart_proc.communicate(), timeout=10)
+                return f"✅ Voice switched to: {voice_name} (daemon restarted)"
+            except Exception as e:
+                return f"✅ Voice switched to: {voice_name} (restart manually: systemctl --user restart piper-tts)"
         return f"❌ Failed to switch voice: {result}"
 
     async def list_personalities(self) -> str:
@@ -620,8 +632,6 @@ class AgentVibesServer:
             ("en_GB-jenny_dioco-medium", "British female (Jenny)", "25MB"),
             ("en_GB-alba-medium", "Scottish female", "25MB"),
             ("en_GB-aru-medium", "British male", "25MB"),
-            # Australian English
-            ("en_AU-karen-low", "Australian female", "13MB"),
             # Other languages
             ("de_DE-thorsten-high", "German male, premium", "30MB"),
             ("fr_FR-siwis-medium", "French female", "25MB"),

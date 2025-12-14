@@ -98,7 +98,7 @@ fi
 # Create default configs (only if not exist - preserve user settings)
 echo "[8/10] Setting up default configuration..."
 [[ ! -f "$USER_CLAUDE/tts-provider.txt" ]] && echo "piper" > "$USER_CLAUDE/tts-provider.txt" && echo "  Set provider: piper"
-[[ ! -f "$USER_CLAUDE/tts-voice.txt" ]] && echo "en_US-lessac-medium" > "$USER_CLAUDE/tts-voice.txt" && echo "  Set voice: en_US-lessac-medium"
+[[ ! -f "$USER_CLAUDE/tts-voice.txt" ]] && echo "en_GB-jenny_dioco-medium" > "$USER_CLAUDE/tts-voice.txt" && echo "  Set voice: en_GB-jenny_dioco-medium (Jenny)"
 [[ ! -f "$USER_CLAUDE/tts-verbosity.txt" ]] && echo "medium" > "$USER_CLAUDE/tts-verbosity.txt" && echo "  Set verbosity: medium"
 [[ ! -f "$USER_CLAUDE/config/tts-save-audio.txt" ]] && echo "false" > "$USER_CLAUDE/config/tts-save-audio.txt" && echo "  Set save-audio: false"
 
@@ -131,8 +131,6 @@ if [[ -f "$USER_CLAUDE/hooks/piper-voice-manager.sh" ]]; then
     "en_GB-jenny_dioco-medium" # British female (Jenny)
     "en_GB-alba-medium"        # Scottish female
     "en_GB-aru-medium"         # British male
-    # Australian English
-    "en_AU-karen-low"          # Australian female
     # Other languages
     "de_DE-thorsten-high"      # German male
     "fr_FR-siwis-medium"       # French female
