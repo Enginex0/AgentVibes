@@ -562,6 +562,81 @@ class AgentVibesServer:
             return result
         return f"❌ Failed to download extra voices: {result}"
 
+    async def download_voice(self, voice_name: str) -> str:
+        """
+        Download a specific Piper voice model from HuggingFace.
+
+        Voice names follow the pattern: lang_LOCALE-speaker-quality
+        Examples: en_US-amy-medium, en_GB-jenny_dioco-medium, en_US-ryan-high
+
+        Args:
+            voice_name: The voice model name to download
+
+        Returns:
+            Success or failure message with download status
+        """
+        # Use piper-voice-manager.sh's download_voice function via bash
+        script = f'''source "$HOME/.claude/hooks/piper-voice-manager.sh" && download_voice "{voice_name}"'''
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "/bin/bash", "-c", script,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env={**os.environ, "HOME": os.path.expanduser("~")}
+            )
+            stdout, stderr = await proc.communicate()
+            result = stdout.decode().strip()
+            if proc.returncode == 0 and ("✅" in result or "downloaded" in result.lower()):
+                return result
+            return f"❌ Failed to download voice '{voice_name}': {result or stderr.decode().strip()}"
+        except Exception as e:
+            return f"❌ Error downloading voice: {e}"
+
+    async def list_available_voices(self) -> str:
+        """
+        List popular Piper voices available for download.
+
+        Shows voice name, description, quality, and download status.
+
+        Returns:
+            Formatted list of available voices with download status
+        """
+        # Common high-quality voices from HuggingFace piper-voices repository
+        available_voices = [
+            ("en_US-lessac-medium", "Clear female, default voice", "13MB"),
+            ("en_US-amy-medium", "Warm female voice", "13MB"),
+            ("en_US-ryan-high", "Expressive male, premium", "30MB"),
+            ("en_US-danny-low", "Calm male voice", "13MB"),
+            ("en_US-bryce-medium", "Professional male", "13MB"),
+            ("en_US-kathleen-low", "Clear female voice", "13MB"),
+            ("en_US-kusal-medium", "Male voice", "13MB"),
+            ("en_US-kristin-medium", "Female voice", "13MB"),
+            ("en_US-libritts_r-high", "Premium male, high quality", "57MB"),
+            ("en_GB-jenny_dioco-medium", "British female (Jenny)", "25MB"),
+            ("en_GB-alba-medium", "Scottish female", "25MB"),
+            ("en_GB-aru-medium", "British male", "25MB"),
+            ("en_AU-karen-low", "Australian female", "13MB"),
+            ("de_DE-thorsten-high", "German male, premium", "30MB"),
+            ("fr_FR-siwis-medium", "French female", "25MB"),
+            ("es_ES-davefx-medium", "Spanish male", "25MB"),
+        ]
+
+        # Check which are already downloaded
+        voice_dir = os.path.expanduser("~/.claude/piper-voices")
+
+        lines = ["🎤 Available Piper Voices for Download:", "━" * 50]
+        for voice_name, desc, size in available_voices:
+            voice_path = os.path.join(voice_dir, f"{voice_name}.onnx")
+            status = "✓ installed" if os.path.exists(voice_path) else f"({size})"
+            lines.append(f"  • {voice_name}")
+            lines.append(f"    {desc} {status}")
+
+        lines.append("")
+        lines.append("💡 Download with: download_voice(voice_name='en_GB-jenny_dioco-medium')")
+        lines.append("📚 Full catalog: https://huggingface.co/rhasspy/piper-voices")
+
+        return "\n".join(lines)
+
     async def get_verbosity(self) -> str:
         """
         Get current verbosity level.
@@ -1103,6 +1178,34 @@ Examples:
             },
         ),
         Tool(
+            name="download_voice",
+            description="""Download a specific Piper voice model from HuggingFace.
+
+Voice names follow the pattern: lang_LOCALE-speaker-quality
+Examples:
+- en_US-amy-medium (warm female)
+- en_GB-jenny_dioco-medium (British Jenny)
+- en_US-ryan-high (expressive male)
+- de_DE-thorsten-high (German male)
+
+Use list_available_voices to see popular options.""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "voice_name": {
+                        "type": "string",
+                        "description": "Voice model name (e.g., en_GB-jenny_dioco-medium)",
+                    }
+                },
+                "required": ["voice_name"],
+            },
+        ),
+        Tool(
+            name="list_available_voices",
+            description="List popular Piper voices available for download with descriptions, sizes, and installation status. Use this to discover new voices before downloading.",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
             name="get_verbosity",
             description="Get current AgentVibes verbosity level (low/medium/high). Verbosity controls how much Claude speaks while working - from minimal (acknowledgments only) to maximum transparency (all reasoning spoken).",
             inputSchema={"type": "object", "properties": {}},
@@ -1309,6 +1412,10 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         elif name == "download_extra_voices":
             auto_yes = arguments.get("auto_yes", False)
             result = await agent_vibes.download_extra_voices(auto_yes)
+        elif name == "download_voice":
+            result = await agent_vibes.download_voice(arguments["voice_name"])
+        elif name == "list_available_voices":
+            result = await agent_vibes.list_available_voices()
         elif name == "get_verbosity":
             result = await agent_vibes.get_verbosity()
         elif name == "set_verbosity":
