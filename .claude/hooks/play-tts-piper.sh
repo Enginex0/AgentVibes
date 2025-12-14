@@ -347,18 +347,36 @@ if [[ "$daemon_ready" == "true" ]]; then
   # Create queue directory if needed
   mkdir -p "$QUEUE_DIR"
 
-  # Escape text for JSON
-  ESCAPED_TEXT="${TEXT//\\/\\\\}"
-  ESCAPED_TEXT="${ESCAPED_TEXT//\"/\\\"}"
+  # Security: Prevent queue overflow (max 100 files)
+  queue_count=$(find "$QUEUE_DIR" -maxdepth 1 -name "msg-*.json" 2>/dev/null | wc -l)
+  if [[ "$queue_count" -gt 100 ]]; then
+    av_log_warn "Queue overflow ($queue_count files), falling back to direct synthesis"
+    daemon_ready=false
+  fi
+fi
 
+if [[ "$daemon_ready" == "true" ]]; then
   # Generate unique filename with nanosecond timestamp + PID for ordering
   TIMESTAMP=$(date +%s%N)
   MSG_FILE="$QUEUE_DIR/msg-${TIMESTAMP}-$$.json"
   TEMP_MSG="$QUEUE_DIR/.msg-${TIMESTAMP}-$$.tmp"
 
-  # Atomic write: temp file + rename (prevents partial reads by inotifywait)
+  # Write JSON with proper escaping (jq handles newlines, tabs, control chars)
   av_log_start "QUEUE_WRITE"
-  printf '{"text":"%s"}' "$ESCAPED_TEXT" > "$TEMP_MSG"
+  if command -v jq &>/dev/null; then
+    # Use jq for complete JSON escaping (handles all special characters)
+    printf '%s' "$TEXT" | jq -Rsc '{"text": .}' > "$TEMP_MSG"
+  else
+    # Fallback: manual escaping (handles common cases)
+    ESCAPED_TEXT="${TEXT//\\/\\\\}"
+    ESCAPED_TEXT="${ESCAPED_TEXT//$'\n'/\\n}"
+    ESCAPED_TEXT="${ESCAPED_TEXT//$'\r'/\\r}"
+    ESCAPED_TEXT="${ESCAPED_TEXT//$'\t'/\\t}"
+    ESCAPED_TEXT="${ESCAPED_TEXT//\"/\\\"}"
+    printf '{"text":"%s"}' "$ESCAPED_TEXT" > "$TEMP_MSG"
+  fi
+
+  # Atomic rename (prevents partial reads by inotifywait)
   mv "$TEMP_MSG" "$MSG_FILE"
   av_log_info "Queued message: $MSG_FILE"
   av_log_end "QUEUE_WRITE"

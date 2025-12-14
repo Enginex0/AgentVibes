@@ -16,6 +16,13 @@
 # Note: Using -u only (not -e or pipefail) for daemon stability
 set -u
 
+# Cache millisecond support detection (avoid repeated checks in hot path)
+if date +%s%3N &>/dev/null 2>&1; then
+  _AV_DATE_HAS_MS=1
+else
+  _AV_DATE_HAS_MS=0
+fi
+
 # ============================================================================
 # Configuration
 # ============================================================================
@@ -46,7 +53,7 @@ av_daemon_log() {
   local level="$1"
   local message="$2"
   local ts
-  if date +%s%3N >/dev/null 2>&1; then
+  if [[ "$_AV_DATE_HAS_MS" -eq 1 ]]; then
     ts=$(date +"%Y-%m-%dT%H:%M:%S.%3N")
   else
     ts=$(date +"%Y-%m-%dT%H:%M:%S.000")
@@ -57,7 +64,7 @@ av_daemon_log() {
 declare -A AV_DAEMON_TIMES
 av_daemon_start() {
   local op="$1"
-  if date +%s%3N >/dev/null 2>&1; then
+  if [[ "$_AV_DATE_HAS_MS" -eq 1 ]]; then
     AV_DAEMON_TIMES[$op]=$(date +%s%3N)
   else
     AV_DAEMON_TIMES[$op]=$(($(date +%s) * 1000))
@@ -69,7 +76,7 @@ av_daemon_end() {
   local op="$1"
   local status="${2:-OK}"
   local end_ms
-  if date +%s%3N >/dev/null 2>&1; then
+  if [[ "$_AV_DATE_HAS_MS" -eq 1 ]]; then
     end_ms=$(date +%s%3N)
   else
     end_ms=$(($(date +%s) * 1000))
@@ -236,10 +243,10 @@ process_tts() {
   # Try to parse as JSON
   av_daemon_start "JSON_PARSE"
   if echo "$input" | jq -e . &>/dev/null; then
-    text=$(echo "$input" | jq -r '.text // empty')
-    reverb=$(echo "$input" | jq -r '.reverb // empty')
-    background=$(echo "$input" | jq -r '.background // empty')
-    volume=$(echo "$input" | jq -r '.volume // empty')
+    # OPTIMIZED: Single jq call extracts all fields (saves ~20ms vs 5 separate calls)
+    IFS=$'\t' read -r text reverb background volume < <(
+      echo "$input" | jq -r '[.text // "", .reverb // "", .background // "", .volume // ""] | @tsv'
+    )
     av_daemon_log "INFO" "Parsed as JSON, text length: ${#text}"
   else
     text="$input"
@@ -365,16 +372,33 @@ process_queue_file() {
   local filepath="$1"
   [[ -f "$filepath" ]] || return
 
+  local max_size=102400  # 100KB max - security limit
+
+  # Security: Reject symlinks (prevent symlink attacks)
+  if [[ -L "$filepath" ]]; then
+    av_daemon_log "WARN" "Rejected symlink: $filepath"
+    rm -f "$filepath" 2>/dev/null
+    return
+  fi
+
   av_daemon_start "QUEUE_FILE"
   av_daemon_log "INFO" "Processing queue file: $filepath"
 
-  # Debug: Check file size and existence
+  # Check file size
   local filesize
   filesize=$(stat -c%s "$filepath" 2>/dev/null || echo "0")
   av_daemon_log "INFO" "File size: $filesize bytes"
 
+  # Security: Enforce file size limit
+  if [[ "$filesize" -gt "$max_size" ]]; then
+    av_daemon_log "ERROR" "File too large ($filesize > $max_size bytes) - rejecting"
+    rm -f "$filepath" 2>/dev/null
+    av_daemon_end "QUEUE_FILE" "OVERSIZED"
+    return
+  fi
+
   local content
-  content=$(cat "$filepath" 2>/dev/null)
+  content=$(<"$filepath") || content=""
   av_daemon_log "INFO" "Content length after read: ${#content}"
 
   if [[ -z "$content" ]]; then
@@ -411,8 +435,9 @@ trap cleanup SIGTERM SIGINT SIGHUP
 # Main
 # ============================================================================
 
-# Create directories
+# Create directories with secure permissions
 mkdir -p "$QUEUE_DIR" "$DAEMON_DIR" "$AUDIO_DIR"
+chmod 700 "$QUEUE_DIR" "$DAEMON_DIR" 2>/dev/null || true
 
 # Get model path
 MODEL=$(get_model_path)
@@ -435,10 +460,15 @@ echo "Voice: $VOICE"
 echo "Model: $MODEL"
 echo "Queue directory: $QUEUE_DIR"
 
-# Pre-warm the model
+# Pre-warm the model (with verification)
 av_daemon_start "MODEL_WARMUP"
 echo "Pre-warming model..."
-echo "." | piper --model "$MODEL" --output-raw >/dev/null 2>&1 || true
+if ! echo "." | timeout 30 piper --model "$MODEL" --output-raw >/dev/null 2>&1; then
+  av_daemon_log "ERROR" "Model warmup failed - check model path: $MODEL"
+  av_daemon_end "MODEL_WARMUP" "FAILED"
+  echo "ERROR: Model warmup failed - check model path: $MODEL" >&2
+  exit 1
+fi
 av_daemon_end "MODEL_WARMUP"
 av_daemon_log "INFO" "Model warm, ready for requests"
 echo "Model warm, ready for requests"
@@ -462,12 +492,12 @@ if ! command -v inotifywait &>/dev/null; then
   exit 1
 fi
 
-# Watch for new files using inotifywait
+# Watch for new files using inotifywait (with error logging)
 av_daemon_log "INFO" "Watching queue directory: $QUEUE_DIR"
 echo "Watching queue directory for new files..."
 
-inotifywait -m -e moved_to --format '%f' "$QUEUE_DIR" 2>/dev/null |
-while read -r filename; do
+inotifywait -m -e moved_to --format '%f' "$QUEUE_DIR" 2>>"$AV_LOG_DIR/inotify-error.log" |
+while read -r filename || { av_daemon_log "ERROR" "inotifywait exited unexpectedly"; exit 1; }; do
   # Only process msg-*.json files (atomic rename guarantees complete file)
   [[ "$filename" == msg-*.json ]] || continue
 
@@ -477,6 +507,12 @@ while read -r filename; do
   sleep 0.01
 
   [[ -f "$filepath" ]] || continue
+
+  # Defense-in-depth: Check queue size at daemon level too
+  queue_count=$(find "$QUEUE_DIR" -maxdepth 1 -name "msg-*.json" 2>/dev/null | wc -l)
+  if [[ "$queue_count" -gt 100 ]]; then
+    av_daemon_log "WARN" "Queue overflow at daemon ($queue_count files) - processing continues"
+  fi
 
   av_daemon_log "INFO" "New queue file detected: $filename"
   process_queue_file "$filepath"
