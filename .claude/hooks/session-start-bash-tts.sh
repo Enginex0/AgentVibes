@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# File: .claude/hooks/session-start-tts.sh
+# File: .claude/hooks/session-start-bash-tts.sh
 #
-# AgentVibes SessionStart Hook - Injects TTS Protocol Instructions
+# AgentVibes SessionStart Hook - Bash-Based TTS Protocol
 #
-# This hook outputs TTS protocol instructions to stdout, which Claude Code
-# adds to the conversation context at session start.
+# This hook outputs TTS protocol instructions telling Claude to use Bash
+# tool for TTS (fallback when MCP aggregator is not available).
 #
 
 set -euo pipefail

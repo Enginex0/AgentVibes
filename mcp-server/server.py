@@ -114,11 +114,16 @@ class AgentVibesServer:
         original_language = None
 
         try:
-            # ENHANCED DAEMON PATH: Send JSON with effects info
-            daemon_fifo = os.path.expanduser("~/.claude/piper-daemon/input.fifo")
+            # FILE QUEUE PATH: Write JSON to queue directory (inotifywait-based)
+            # This is the new fast path that replaced FIFO-based daemon
+            queue_dir = os.path.expanduser("~/.claude/piper-queue")
+            ready_file = os.path.expanduser("~/.claude/piper-daemon/ready")
 
             # Check if daemon is running via systemd
             import subprocess as sp
+            import json
+            import time
+
             daemon_running = False
             try:
                 # Set required env vars for systemctl --user
@@ -132,68 +137,72 @@ class AgentVibesServer:
             except Exception:
                 pass
 
-            if daemon_running and os.path.exists(daemon_fifo):
+            # Use file queue if daemon is running and queue dir exists
+            if daemon_running and os.path.isdir(queue_dir) and os.path.exists(ready_file):
                 try:
-                    import json
-                    # Build JSON payload with effects from config
-                    payload = {"text": text}
-
-                    # Add reverb if configured
-                    effects_cfg = os.path.expanduser("~/.claude/config/audio-effects.cfg")
-                    if os.path.exists(effects_cfg):
-                        with open(effects_cfg, 'r') as f:
-                            for line in f:
-                                if line.startswith("default|"):
-                                    parts = line.strip().split("|")
-                                    if len(parts) >= 2 and "reverb" in parts[1]:
-                                        if "reverb 70" in parts[1]:
-                                            payload["reverb"] = "heavy"
-                                        elif "reverb 40" in parts[1]:
-                                            payload["reverb"] = "medium"
-                                        elif "reverb 20" in parts[1]:
-                                            payload["reverb"] = "light"
-                                        elif "reverb 90" in parts[1]:
-                                            payload["reverb"] = "cathedral"
-                                    if len(parts) >= 3 and parts[2]:
-                                        payload["background"] = parts[2]
-                                    if len(parts) >= 4 and parts[3]:
-                                        payload["volume"] = parts[3]
-                                    break
-
-                    # Use temp file indirection to bypass LINE_MAX (2048 byte) limit
-                    # Same technique as bash daemon: write JSON to temp file, send filename to FIFO
-                    daemon_dir = os.path.expanduser("~/.claude/piper-daemon")
-                    fd, temp_msg = tempfile.mkstemp(suffix='.json', prefix='msg-', dir=daemon_dir)
-                    os.close(fd)
-                    with open(temp_msg, 'w') as tf:
-                        json.dump(payload, tf)
-                    # Use subprocess to write to FIFO (mimics bash behavior exactly)
-                    # Python's open() on FIFO can have buffering issues in async context
-                    sp.run(['bash', '-c', f'echo "{temp_msg}" > "{daemon_fifo}"'], timeout=5)
-
-                    # Build human-readable status message
-                    effects_used = []
-                    if payload.get("reverb"):
-                        effects_used.append(f"reverb={payload['reverb']}")
-
-                    # Check if background music is actually enabled
-                    bg_enabled_file = os.path.expanduser("~/.claude/config/background-music-enabled.txt")
-                    bg_actually_enabled = False
-                    if os.path.exists(bg_enabled_file):
-                        try:
-                            with open(bg_enabled_file, 'r') as f:
-                                bg_actually_enabled = f.read().strip().lower() == "true"
-                        except Exception:
-                            pass
-
-                    if payload.get("background") and bg_actually_enabled:
-                        effects_used.append("background music")
-
-                    if effects_used:
-                        effects_str = f" with {', '.join(effects_used)}"
+                    # Security: Check queue size (max 100 files)
+                    queue_files = [f for f in os.listdir(queue_dir) if f.startswith('msg-') and f.endswith('.json')]
+                    if len(queue_files) > 100:
+                        pass  # Fall through to subprocess
                     else:
-                        effects_str = ""
-                    return f"⚡ TTS via daemon{effects_str}"
+                        # Build JSON payload with jq-safe escaping
+                        payload = {"text": text}
+
+                        # Add reverb if configured
+                        effects_cfg = os.path.expanduser("~/.claude/config/audio-effects.cfg")
+                        if os.path.exists(effects_cfg):
+                            with open(effects_cfg, 'r') as f:
+                                for line in f:
+                                    if line.startswith("default|"):
+                                        parts = line.strip().split("|")
+                                        if len(parts) >= 2 and "reverb" in parts[1]:
+                                            if "reverb 70" in parts[1]:
+                                                payload["reverb"] = "heavy"
+                                            elif "reverb 40" in parts[1]:
+                                                payload["reverb"] = "medium"
+                                            elif "reverb 20" in parts[1]:
+                                                payload["reverb"] = "light"
+                                            elif "reverb 90" in parts[1]:
+                                                payload["reverb"] = "cathedral"
+                                        if len(parts) >= 3 and parts[2]:
+                                            payload["background"] = parts[2]
+                                        if len(parts) >= 4 and parts[3]:
+                                            payload["volume"] = parts[3]
+                                        break
+
+                        # Generate timestamped filename (same pattern as play-tts-piper.sh)
+                        timestamp = int(time.time() * 1000)
+                        msg_file = os.path.join(queue_dir, f"msg-{timestamp}.json")
+
+                        # Atomic write: temp file + rename
+                        temp_file = f"{msg_file}.tmp"
+                        with open(temp_file, 'w') as tf:
+                            json.dump(payload, tf)
+                        os.rename(temp_file, msg_file)
+
+                        # Build human-readable status message
+                        effects_used = []
+                        if payload.get("reverb"):
+                            effects_used.append(f"reverb={payload['reverb']}")
+
+                        # Check if background music is actually enabled
+                        bg_enabled_file = os.path.expanduser("~/.claude/config/background-music-enabled.txt")
+                        bg_actually_enabled = False
+                        if os.path.exists(bg_enabled_file):
+                            try:
+                                with open(bg_enabled_file, 'r') as f:
+                                    bg_actually_enabled = f.read().strip().lower() == "true"
+                            except Exception:
+                                pass
+
+                        if payload.get("background") and bg_actually_enabled:
+                            effects_used.append("background music")
+
+                        if effects_used:
+                            effects_str = f" with {', '.join(effects_used)}"
+                        else:
+                            effects_str = ""
+                        return f"⚡ MCP TTS via queue{effects_str}"
                 except Exception:
                     pass  # Fall through to subprocess
 

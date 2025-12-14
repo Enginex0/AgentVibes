@@ -197,6 +197,27 @@ if [[ "$MCP_CONFIGURED" == "true" ]]; then
   echo "  MCP server configured successfully"
 fi
 
+# Create TTS mode symlink based on MCP availability
+# This provides zero-delay mode switching (symlink resolved by kernel)
+echo ""
+echo "[11/11] Configuring TTS mode..."
+HOOKS_DIR="$USER_CLAUDE/hooks"
+
+# Remove any existing symlink or file
+rm -f "$HOOKS_DIR/session-start-tts.sh" 2>/dev/null
+
+if [[ "$MCP_CONFIGURED" == "true" ]]; then
+  # MCP available - use faster MCP-based TTS
+  ln -s "session-start-mcp-tts.sh" "$HOOKS_DIR/session-start-tts.sh"
+  TTS_MODE="MCP (faster, aggregator-based)"
+else
+  # No MCP - fall back to Bash-based TTS
+  ln -s "session-start-bash-tts.sh" "$HOOKS_DIR/session-start-tts.sh"
+  TTS_MODE="Bash (fallback, no aggregator)"
+fi
+echo "  TTS mode: $TTS_MODE"
+echo "  Symlink: session-start-tts.sh -> $(readlink "$HOOKS_DIR/session-start-tts.sh")"
+
 echo ""
 echo "=== Setup Complete! ==="
 echo ""
