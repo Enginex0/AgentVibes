@@ -89,7 +89,29 @@ if [[ -d "$USER_CLAUDE/scripts" ]]; then
   rm -f "$USER_CLAUDE/scripts/piper-queue-worker.sh"
   rm -f "$USER_CLAUDE/scripts/piper-worker.sh"
   rm -f "$USER_CLAUDE/scripts/mcp-tts-play.sh"
+  # Remove agentvibes wrapper scripts
+  rm -f "$USER_CLAUDE/scripts/agentvibes-wrapper.sh"
+  rm -f "$USER_CLAUDE/scripts/agentvibes-patch-npx.sh"
+  rm -f "$USER_CLAUDE/scripts/agentvibes-backup-patches.sh"
   echo "  Removed daemon scripts"
+fi
+
+# Remove agentvibes-patches directory
+if [[ -d "$USER_CLAUDE/agentvibes-patches" ]]; then
+  rm -rf "$USER_CLAUDE/agentvibes-patches"
+  echo "  Removed agentvibes-patches directory"
+fi
+
+# Remove aggregator server cache for agentvibes
+if [[ -d "$USER_CLAUDE/mcp-aggregator/servers/agentvibes" ]]; then
+  rm -rf "$USER_CLAUDE/mcp-aggregator/servers/agentvibes"
+  echo "  Removed aggregator server cache"
+fi
+
+# Remove agentvibes logs
+if [[ -d "$USER_CLAUDE/logs/agentvibes" ]]; then
+  rm -rf "$USER_CLAUDE/logs/agentvibes"
+  echo "  Removed agentvibes logs"
 fi
 
 # Remove piper-daemon directory
@@ -199,9 +221,11 @@ if [[ -d "$HOOKS_DIR" ]]; then
     "replay-target-audio.sh"
     "requirements.txt"
     "sentiment-manager.sh"
+    "session-start-bash-tts.sh"
     "session-start-mcp-tts.sh"
     "session-start-tts.sh"
     "speed-manager.sh"
+    "tts-mode-toggle.sh"
     "translate-manager.sh"
     "translator.py"
     "tts-queue-worker.sh"

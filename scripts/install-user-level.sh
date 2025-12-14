@@ -106,8 +106,46 @@ echo "[8/10] Setting up default configuration..."
 touch "$USER_CLAUDE/agentvibes-user-level"
 echo "  User-level mode enabled"
 
+# Download default voice model (if not already present)
+echo "[9/12] Downloading default voice model..."
+VOICE_DIR="$USER_CLAUDE/piper-voices"
+VOICE_NAME="en_US-lessac-medium"
+VOICE_FILE="$VOICE_DIR/$VOICE_NAME.onnx"
+
+if [[ -f "$VOICE_FILE" ]]; then
+  echo "  Voice model already exists: $VOICE_NAME"
+else
+  mkdir -p "$VOICE_DIR"
+  VOICE_BASE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium"
+
+  if command -v wget &>/dev/null; then
+    echo "  Downloading $VOICE_NAME (60MB, may take a minute)..."
+    if wget -q "$VOICE_BASE_URL/$VOICE_NAME.onnx" -O "$VOICE_FILE" 2>/dev/null && \
+       wget -q "$VOICE_BASE_URL/$VOICE_NAME.onnx.json" -O "$VOICE_FILE.json" 2>/dev/null; then
+      echo "  Voice model downloaded: $VOICE_NAME"
+    else
+      echo "  Warning: Failed to download voice model"
+      echo "  Manual download: ~/.claude/hooks/piper-voice-manager.sh download $VOICE_NAME"
+      rm -f "$VOICE_FILE" "$VOICE_FILE.json" 2>/dev/null
+    fi
+  elif command -v curl &>/dev/null; then
+    echo "  Downloading $VOICE_NAME (60MB, may take a minute)..."
+    if curl -sL "$VOICE_BASE_URL/$VOICE_NAME.onnx" -o "$VOICE_FILE" 2>/dev/null && \
+       curl -sL "$VOICE_BASE_URL/$VOICE_NAME.onnx.json" -o "$VOICE_FILE.json" 2>/dev/null; then
+      echo "  Voice model downloaded: $VOICE_NAME"
+    else
+      echo "  Warning: Failed to download voice model"
+      echo "  Manual download: ~/.claude/hooks/piper-voice-manager.sh download $VOICE_NAME"
+      rm -f "$VOICE_FILE" "$VOICE_FILE.json" 2>/dev/null
+    fi
+  else
+    echo "  Warning: Neither wget nor curl available"
+    echo "  Manual download required: ~/.claude/hooks/piper-voice-manager.sh download $VOICE_NAME"
+  fi
+fi
+
 # Install systemd service (Linux only)
-echo "[9/10] Installing systemd service..."
+echo "[10/12] Installing systemd service..."
 if [[ "$(uname)" == "Linux" ]] && command -v systemctl &>/dev/null; then
   if [[ -f "$PACKAGE_DIR/systemd/piper-tts.service" ]]; then
     mkdir -p "$HOME/.config/systemd/user"
@@ -134,7 +172,7 @@ else
 fi
 
 # Configure MCP Server (auto-detect aggregator vs direct)
-echo "[10/10] Configuring MCP server..."
+echo "[11/12] Configuring MCP server..."
 MCP_CONFIGURED=false
 
 if [[ -f "$AGGREGATOR_CONFIG" ]]; then
@@ -200,7 +238,7 @@ fi
 # Create TTS mode symlink based on MCP availability
 # This provides zero-delay mode switching (symlink resolved by kernel)
 echo ""
-echo "[11/11] Configuring TTS mode..."
+echo "[12/12] Configuring TTS mode..."
 HOOKS_DIR="$USER_CLAUDE/hooks"
 
 # Remove any existing symlink or file
@@ -224,10 +262,11 @@ echo ""
 echo "AgentVibes is now configured for user-level operation."
 echo ""
 echo "Next steps:"
-echo "  1. Install Piper TTS: pipx install piper-tts"
-echo "  2. Download a voice: ~/.claude/hooks/piper-voice-manager.sh download en_US-lessac-medium"
-echo "  3. Start the daemon: systemctl --user start piper-tts"
-echo "  4. Test TTS: ~/.claude/hooks/play-tts.sh 'Hello world!'"
+echo "  1. Install Piper TTS (if not already): pipx install piper-tts"
+echo "  2. Restart Claude Code to activate TTS"
+echo "  3. Test TTS: ~/.claude/hooks/play-tts.sh 'Hello world!'"
+echo ""
+echo "All other setup (voice model, daemon, MCP) has been configured automatically!"
 echo ""
 echo "Configuration files:"
 echo "  Voice:       $USER_CLAUDE/tts-voice.txt"
