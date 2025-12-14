@@ -318,64 +318,57 @@ ensure_audio_stack() {
 # Ensure audio stack is healthy before any TTS
 ensure_audio_stack
 
-# @function check_and_use_daemon
-# @intent Use piper-daemon if running for faster TTS
-# @why Daemon keeps model warm, reducing latency from ~1.5s to ~0.002s
+# @function check_and_use_queue
+# @intent Use file-based queue for non-blocking TTS (replaces FIFO)
+# @why File writes NEVER block - eliminates session startup delays
+# @architecture Script writes JSON to queue dir, daemon picks up via inotifywait
 av_log_start "DAEMON_CHECK"
-DAEMON_FIFO="$HOME/.claude/piper-daemon/input.fifo"
+QUEUE_DIR="$HOME/.claude/piper-queue"
+READY_FILE="$HOME/.claude/piper-daemon/ready"
 
-# OPTIMIZED: Check FIFO first (fast), only call systemctl if FIFO missing
-# This saves ~30ms on happy path when daemon is running
+# Check if queue worker is ready (ready file exists after model warmup)
 daemon_ready=false
-if [[ -p "$DAEMON_FIFO" ]]; then
-  # FIFO exists - daemon is ready (fastest check)
+if [[ -f "$READY_FILE" ]]; then
+  # Daemon is warm and ready
   daemon_ready=true
-  av_log_info "FIFO exists - daemon ready (fast path)"
+  av_log_info "Ready file exists - daemon ready (fast path)"
 elif systemctl --user is-active --quiet piper-tts 2>/dev/null; then
-  # Systemd says running but FIFO missing - might be starting up, try anyway
+  # Systemd says running but ready file missing - daemon still warming up
+  # Still queue the request - it will be processed once daemon is ready
   daemon_ready=true
-  av_log_info "Systemd active but FIFO missing - will attempt write"
+  av_log_info "Systemd active, ready file missing - queuing anyway"
 else
   av_log_warn "Daemon not running"
 fi
 
 if [[ "$daemon_ready" == "true" ]]; then
-  av_log_info "Using daemon for instant TTS"
-  # Daemon is running - use it for instant TTS
-  # Use temp file indirection to bypass bash LINE_MAX (2048 byte) limit
+  av_log_info "Using file queue for non-blocking TTS"
+
+  # Create queue directory if needed
+  mkdir -p "$QUEUE_DIR"
+
+  # Escape text for JSON
   ESCAPED_TEXT="${TEXT//\\/\\\\}"
   ESCAPED_TEXT="${ESCAPED_TEXT//\"/\\\"}"
 
-  # Security: Use mktemp for unpredictable filename (prevents symlink attacks)
-  av_log_start "TEMP_MSG_CREATE"
-  TEMP_MSG=$(mktemp "$HOME/.claude/piper-daemon/msg-XXXXXX.json")
-  av_log_info "Created temp message file: $TEMP_MSG"
-  av_log_end "TEMP_MSG_CREATE"
+  # Generate unique filename with nanosecond timestamp + PID for ordering
+  TIMESTAMP=$(date +%s%N)
+  MSG_FILE="$QUEUE_DIR/msg-${TIMESTAMP}-$$.json"
+  TEMP_MSG="$QUEUE_DIR/.msg-${TIMESTAMP}-$$.tmp"
 
-  # Write JSON to temp file first (no line length limits)
-  av_log_start "JSON_WRITE"
+  # Atomic write: temp file + rename (prevents partial reads by inotifywait)
+  av_log_start "QUEUE_WRITE"
   printf '{"text":"%s"}' "$ESCAPED_TEXT" > "$TEMP_MSG"
-  av_log_end "JSON_WRITE"
+  mv "$TEMP_MSG" "$MSG_FILE"
+  av_log_info "Queued message: $MSG_FILE"
+  av_log_end "QUEUE_WRITE"
 
-  # Send filename via FIFO with timeout (prevents blocking forever if FIFO is full)
-  # Use positional params to avoid quoting issues with special characters in paths
-  av_log_start "FIFO_WRITE"
-  av_log_info "Writing to FIFO (5s timeout)..."
-  if timeout 5 sh -c 'echo "$1" > "$2"' _ "$TEMP_MSG" "$DAEMON_FIFO" 2>/dev/null; then
-    av_log_end "FIFO_WRITE"
-    av_log_info "FIFO write successful - daemon will process"
-    av_log_end "DAEMON_CHECK"
-    av_log_end "PIPER_TTS"
-    echo "⚡ Daemon TTS (instant)"
-    echo "🎤 Voice: $VOICE_MODEL (Piper daemon)"
-    exit 0
-  else
-    av_log_end "FIFO_WRITE" "TIMEOUT"
-    av_log_error "FIFO write timed out after 5s"
-    # Timeout or error - clean up temp file and fall through to direct synthesis
-    rm -f "$TEMP_MSG" 2>/dev/null
-    echo "Warning: Daemon FIFO timeout, falling back to direct synthesis" >&2
-  fi
+  # Return immediately - NO BLOCKING
+  av_log_end "DAEMON_CHECK"
+  av_log_end "PIPER_TTS"
+  echo "⚡ Daemon TTS (instant)"
+  echo "🎤 Voice: $VOICE_MODEL (Piper queue)"
+  exit 0
 else
   av_log_warn "Daemon not available - will use direct synthesis"
 fi
