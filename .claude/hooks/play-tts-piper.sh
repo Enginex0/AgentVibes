@@ -430,7 +430,8 @@ if [[ -f "$SKIP_PADDING_FILE" ]] && [[ "$(<"$SKIP_PADDING_FILE")" == "true" ]]; 
   # Padding disabled - native Linux doesn't need it
   :
 elif command -v ffmpeg &> /dev/null; then
-  PADDED_FILE="$AUDIO_DIR/tts-padded-$(date +%s).wav"
+  # Security: Use mktemp for unpredictable filename
+  PADDED_FILE=$(mktemp "$AUDIO_DIR/tts-padded-XXXXXX.wav")
   # Add 200ms of silence at the beginning
   ffmpeg -f lavfi -i anullsrc=r=44100:cl=stereo:d=0.2 -i "$TEMP_FILE" \
     -filter_complex "[0:a][1:a]concat=n=2:v=0:a=1[out]" \
