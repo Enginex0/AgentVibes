@@ -198,7 +198,7 @@ if [[ -f "$AGGREGATOR_CONFIG" ]]; then
         }' "$AGGREGATOR_CONFIG" > "$TEMP_CONFIG" && mv "$TEMP_CONFIG" "$AGGREGATOR_CONFIG"
       ) 200>"$AGGREGATOR_CONFIG.lock"; then
         echo "  Added AgentVibes to aggregator config"
-        echo "  NOTE: Reload aggregator in Claude to activate (use reload_config tool)"
+        echo "  NOTE: Config auto-loads on Claude start. If Claude is running, use reload_config tool."
         MCP_CONFIGURED=true
       else
         echo "  Warning: Failed to update aggregator config"

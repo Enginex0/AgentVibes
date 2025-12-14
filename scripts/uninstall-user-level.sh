@@ -182,8 +182,24 @@ if [[ -d "$USER_CLAUDE/config" ]]; then
   echo "  Removed AgentVibes config files"
 fi
 
+# Remove AgentVibes slash commands
+echo "[5/6] Removing AgentVibes slash commands..."
+COMMANDS_DIR="$USER_CLAUDE/commands"
+if [[ -d "$COMMANDS_DIR" ]]; then
+  # Remove agent-vibes directory (contains all /agent-vibes:* commands)
+  if [[ -d "$COMMANDS_DIR/agent-vibes" ]]; then
+    rm -rf "$COMMANDS_DIR/agent-vibes"
+    echo "  Removed agent-vibes command directory"
+  fi
+  # Remove standalone agent-vibes command files
+  rm -f "$COMMANDS_DIR/agent-vibes-bmad-voices.md" \
+        "$COMMANDS_DIR/agent-vibes-rdp.md" \
+        2>/dev/null
+  echo "  Removed standalone agent-vibes command files"
+fi
+
 # Remove ALL AgentVibes hooks (by specific filenames to avoid removing non-AgentVibes hooks)
-echo "[5/5] Removing AgentVibes hooks..."
+echo "[6/6] Removing AgentVibes hooks..."
 HOOKS_DIR="$USER_CLAUDE/hooks"
 if [[ -d "$HOOKS_DIR" ]]; then
   # List of AgentVibes hook files to remove
@@ -238,7 +254,8 @@ if [[ -d "$HOOKS_DIR" ]]; then
 
   HOOKS_REMOVED=0
   for hook in "${AGENTVIBES_HOOKS[@]}"; do
-    if [[ -f "$HOOKS_DIR/$hook" ]]; then
+    # Use -e OR -L to catch both regular files AND symlinks (including broken symlinks)
+    if [[ -e "$HOOKS_DIR/$hook" || -L "$HOOKS_DIR/$hook" ]]; then
       rm -f "$HOOKS_DIR/$hook"
       HOOKS_REMOVED=$((HOOKS_REMOVED + 1))
     fi
