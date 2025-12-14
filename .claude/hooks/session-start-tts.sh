@@ -10,6 +10,12 @@
 
 set -euo pipefail
 
+# Validate HOME is set (required for config paths)
+if [[ -z "${HOME:-}" ]]; then
+  echo "ERROR: HOME environment variable not set" >&2
+  exit 1
+fi
+
 # Fix locale warnings
 export LC_ALL=C
 
@@ -64,7 +70,12 @@ av_log_end "DAEMON_CHECK"
 # OPTIMIZED: Use bash builtin $(<file) instead of cat subshells (saves ~200ms)
 av_log_start "CONFIG_LOAD"
 
-# Fast config reader - uses bash builtin, no subshells
+# @function _read_cfg
+# @intent Fast config file reader using bash builtin (no subshells)
+# @why Avoids spawning cat processes, saves ~200ms per session start
+# @param $1 config filename (e.g., "tts-sentiment.txt")
+# @param $2 default value if file not found
+# @returns File contents or default value to stdout
 _read_cfg() {
   local file="$1" default="$2"
   if [[ -f ".claude/$file" ]]; then

@@ -42,6 +42,12 @@
 
 set -euo pipefail
 
+# Validate HOME is set (required for config paths)
+if [[ -z "${HOME:-}" ]]; then
+  echo "ERROR: HOME environment variable not set" >&2
+  exit 1
+fi
+
 # Fix locale warnings
 export LC_ALL=C
 

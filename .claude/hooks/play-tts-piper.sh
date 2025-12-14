@@ -37,6 +37,12 @@
 
 set -euo pipefail
 
+# Validate HOME is set (required for config paths)
+if [[ -z "${HOME:-}" ]]; then
+  echo "ERROR: HOME environment variable not set" >&2
+  exit 1
+fi
+
 # Fix locale warnings
 export LC_ALL=C
 
@@ -113,8 +119,8 @@ else
     VOICE_FILE="$HOME/.claude/tts-voice.txt"
   fi
 
-  if [[ -n "$VOICE_FILE" ]]; then
-    FILE_VOICE=$(cat "$VOICE_FILE" 2>/dev/null)
+  if [[ -n "$VOICE_FILE" ]] && [[ -f "$VOICE_FILE" ]]; then
+    FILE_VOICE=$(<"$VOICE_FILE")
 
     # Check for multi-speaker voice (model + speaker ID stored separately)
     # Use same directory as VOICE_FILE for consistency
@@ -123,9 +129,9 @@ else
     SPEAKER_ID_FILE="$VOICE_DIR/tts-piper-speaker-id.txt"
 
     if [[ -f "$MODEL_FILE" ]] && [[ -f "$SPEAKER_ID_FILE" ]]; then
-      # Multi-speaker voice
-      VOICE_MODEL=$(cat "$MODEL_FILE" 2>/dev/null)
-      SPEAKER_ID=$(cat "$SPEAKER_ID_FILE" 2>/dev/null)
+      # Multi-speaker voice (files verified to exist above)
+      VOICE_MODEL=$(<"$MODEL_FILE")
+      SPEAKER_ID=$(<"$SPEAKER_ID_FILE")
       echo "🎭 Using multi-speaker voice: $FILE_VOICE (Model: $VOICE_MODEL, Speaker ID: $SPEAKER_ID)"
     # Check if it's a standard Piper model name or custom voice (just use as-is)
     elif [[ -n "$FILE_VOICE" ]]; then
@@ -237,7 +243,8 @@ else
 fi
 
 mkdir -p "$AUDIO_DIR"
-TEMP_FILE="$AUDIO_DIR/tts-$(date +%s).wav"
+# Security: Use mktemp for unpredictable filename (prevents symlink attacks)
+TEMP_FILE=$(mktemp "$AUDIO_DIR/tts-XXXXXX.wav")
 
 # @function get_speech_rate
 # @intent Determine speech rate for Piper synthesis
@@ -272,7 +279,7 @@ get_speech_rate() {
 
   # If this is a non-English voice and target config exists, use it
   if [[ "$CURRENT_LANGUAGE" != "english" ]] && [[ -n "$target_config" ]]; then
-    local user_speed=$(cat "$target_config" 2>/dev/null)
+    local user_speed=$(<"$target_config")
     # Convert user speed to Piper length-scale (invert)
     # User: 0.5=slower, 1.0=normal, 2.0=faster
     # Piper: 2.0=slower, 1.0=normal, 0.5=faster
@@ -419,7 +426,7 @@ av_log_info "Synthesis successful, file size: $(stat -c%s "$TEMP_FILE" 2>/dev/nu
 # AI NOTE: Use ffmpeg if available, otherwise skip padding (degraded experience)
 # Skip padding if disabled via config (for native Linux where it's not needed)
 SKIP_PADDING_FILE="$HOME/.claude/tts-skip-padding.txt"
-if [[ -f "$SKIP_PADDING_FILE" ]] && [[ "$(cat "$SKIP_PADDING_FILE" 2>/dev/null)" == "true" ]]; then
+if [[ -f "$SKIP_PADDING_FILE" ]] && [[ "$(<"$SKIP_PADDING_FILE")" == "true" ]]; then
   # Padding disabled - native Linux doesn't need it
   :
 elif command -v ffmpeg &> /dev/null; then
@@ -488,7 +495,7 @@ fi
 # Check if audio saving is enabled (default: false = delete after playback)
 SAVE_AUDIO_FILE="$HOME/.claude/config/tts-save-audio.txt"
 SAVE_AUDIO="false"
-if [[ -f "$SAVE_AUDIO_FILE" ]] && [[ "$(cat "$SAVE_AUDIO_FILE" 2>/dev/null)" == "true" ]]; then
+if [[ -f "$SAVE_AUDIO_FILE" ]] && [[ "$(<"$SAVE_AUDIO_FILE")" == "true" ]]; then
   SAVE_AUDIO="true"
 fi
 av_log_info "SAVE_AUDIO: $SAVE_AUDIO"
