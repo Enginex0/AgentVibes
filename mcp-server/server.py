@@ -601,8 +601,10 @@ class AgentVibesServer:
         Returns:
             Formatted list of available voices with download status
         """
-        # Common high-quality voices from HuggingFace piper-voices repository
+        # Complete voice collection from HuggingFace piper-voices repository
+        # All voices are auto-installed during fresh install
         available_voices = [
+            # US English voices
             ("en_US-lessac-medium", "Clear female, default voice", "13MB"),
             ("en_US-amy-medium", "Warm female voice", "13MB"),
             ("en_US-ryan-high", "Expressive male, premium", "30MB"),
@@ -611,11 +613,16 @@ class AgentVibesServer:
             ("en_US-kathleen-low", "Clear female voice", "13MB"),
             ("en_US-kusal-medium", "Male voice", "13MB"),
             ("en_US-kristin-medium", "Female voice", "13MB"),
+            ("en_US-hfc_female-medium", "Professional female", "13MB"),
             ("en_US-libritts_r-high", "Premium male, high quality", "57MB"),
+            ("en_US-libritts-high", "Premium quality voice", "57MB"),
+            # UK English voices
             ("en_GB-jenny_dioco-medium", "British female (Jenny)", "25MB"),
             ("en_GB-alba-medium", "Scottish female", "25MB"),
             ("en_GB-aru-medium", "British male", "25MB"),
+            # Australian English
             ("en_AU-karen-low", "Australian female", "13MB"),
+            # Other languages
             ("de_DE-thorsten-high", "German male, premium", "30MB"),
             ("fr_FR-siwis-medium", "French female", "25MB"),
             ("es_ES-davefx-medium", "Spanish male", "25MB"),

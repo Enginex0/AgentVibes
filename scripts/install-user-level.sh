@@ -106,42 +106,68 @@ echo "[8/10] Setting up default configuration..."
 touch "$USER_CLAUDE/agentvibes-user-level"
 echo "  User-level mode enabled"
 
-# Download default voice model (if not already present)
-echo "[9/12] Downloading default voice model..."
+# Download complete voice collection
+echo "[9/12] Downloading voice collection..."
 VOICE_DIR="$USER_CLAUDE/piper-voices"
-VOICE_NAME="en_US-lessac-medium"
-VOICE_FILE="$VOICE_DIR/$VOICE_NAME.onnx"
+mkdir -p "$VOICE_DIR"
 
-if [[ -f "$VOICE_FILE" ]]; then
-  echo "  Voice model already exists: $VOICE_NAME"
+# Source piper-voice-manager.sh for download_voice function (installed in step 2)
+if [[ -f "$USER_CLAUDE/hooks/piper-voice-manager.sh" ]]; then
+  source "$USER_CLAUDE/hooks/piper-voice-manager.sh"
+
+  # Complete voice collection - all auto-installed for flawless experience
+  VOICE_COLLECTION=(
+    # US English voices (core)
+    "en_US-lessac-medium"      # Default voice
+    "en_US-amy-medium"         # Warm female
+    "en_US-ryan-high"          # Expressive male, premium
+    "en_US-danny-low"          # Calm male
+    "en_US-bryce-medium"       # Professional male
+    "en_US-kathleen-low"       # Clear female
+    "en_US-kusal-medium"       # Male voice
+    "en_US-kristin-medium"     # Female voice
+    "en_US-hfc_female-medium"  # Professional female
+    # UK English voices
+    "en_GB-jenny_dioco-medium" # British female (Jenny)
+    "en_GB-alba-medium"        # Scottish female
+    "en_GB-aru-medium"         # British male
+    # Australian English
+    "en_AU-karen-low"          # Australian female
+    # Other languages
+    "de_DE-thorsten-high"      # German male
+    "fr_FR-siwis-medium"       # French female
+    "es_ES-davefx-medium"      # Spanish male
+  )
+
+  TOTAL_VOICES=${#VOICE_COLLECTION[@]}
+  DOWNLOADED=0
+  SKIPPED=0
+  FAILED=0
+
+  echo "  Downloading $TOTAL_VOICES voices (this may take a few minutes)..."
+  echo ""
+
+  for voice in "${VOICE_COLLECTION[@]}"; do
+    if verify_voice "$voice" 2>/dev/null; then
+      echo "  ✓ $voice (already installed)"
+      SKIPPED=$((SKIPPED + 1))
+    else
+      echo -n "  ↓ $voice... "
+      if download_voice "$voice" >/dev/null 2>&1; then
+        echo "done"
+        DOWNLOADED=$((DOWNLOADED + 1))
+      else
+        echo "failed"
+        FAILED=$((FAILED + 1))
+      fi
+    fi
+  done
+
+  echo ""
+  echo "  Voice collection: $DOWNLOADED downloaded, $SKIPPED already installed, $FAILED failed"
 else
-  mkdir -p "$VOICE_DIR"
-  VOICE_BASE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium"
-
-  if command -v wget &>/dev/null; then
-    echo "  Downloading $VOICE_NAME (60MB, may take a minute)..."
-    if wget -q "$VOICE_BASE_URL/$VOICE_NAME.onnx" -O "$VOICE_FILE" 2>/dev/null && \
-       wget -q "$VOICE_BASE_URL/$VOICE_NAME.onnx.json" -O "$VOICE_FILE.json" 2>/dev/null; then
-      echo "  Voice model downloaded: $VOICE_NAME"
-    else
-      echo "  Warning: Failed to download voice model"
-      echo "  Manual download: ~/.claude/hooks/piper-voice-manager.sh download $VOICE_NAME"
-      rm -f "$VOICE_FILE" "$VOICE_FILE.json" 2>/dev/null
-    fi
-  elif command -v curl &>/dev/null; then
-    echo "  Downloading $VOICE_NAME (60MB, may take a minute)..."
-    if curl -sL "$VOICE_BASE_URL/$VOICE_NAME.onnx" -o "$VOICE_FILE" 2>/dev/null && \
-       curl -sL "$VOICE_BASE_URL/$VOICE_NAME.onnx.json" -o "$VOICE_FILE.json" 2>/dev/null; then
-      echo "  Voice model downloaded: $VOICE_NAME"
-    else
-      echo "  Warning: Failed to download voice model"
-      echo "  Manual download: ~/.claude/hooks/piper-voice-manager.sh download $VOICE_NAME"
-      rm -f "$VOICE_FILE" "$VOICE_FILE.json" 2>/dev/null
-    fi
-  else
-    echo "  Warning: Neither wget nor curl available"
-    echo "  Manual download required: ~/.claude/hooks/piper-voice-manager.sh download $VOICE_NAME"
-  fi
+  echo "  Warning: piper-voice-manager.sh not found, skipping voice download"
+  echo "  Run manually after install: ~/.claude/hooks/piper-download-voices.sh"
 fi
 
 # Install systemd service (Linux only)
