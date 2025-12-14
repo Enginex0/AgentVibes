@@ -46,8 +46,8 @@ VOICE_OVERRIDE="${2:-}"  # Optional: voice model name
 # Source voice manager and language manager
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source logging utilities FIRST
-if [[ -f "$SCRIPT_DIR/logging-utils.sh" ]]; then
+# Source logging utilities (disable with AGENTVIBES_LOGGING=false for ~10ms speedup)
+if [[ "${AGENTVIBES_LOGGING:-true}" != "false" ]] && [[ -f "$SCRIPT_DIR/logging-utils.sh" ]]; then
   source "$SCRIPT_DIR/logging-utils.sh"
   av_log_init "play-tts-piper"
   av_log_start "PIPER_TTS"
@@ -56,7 +56,7 @@ if [[ -f "$SCRIPT_DIR/logging-utils.sh" ]]; then
   av_log_info "TEXT length: ${#TEXT} chars"
   av_log_info "VOICE_OVERRIDE: ${VOICE_OVERRIDE:-<none>}"
 else
-  # Fallback stubs
+  # Minimal stubs when logging disabled (~0.2ms per call vs ~1ms with full logging)
   av_log_info() { :; }
   av_log_warn() { :; }
   av_log_error() { :; }
@@ -316,25 +316,23 @@ ensure_audio_stack
 # @why Daemon keeps model warm, reducing latency from ~1.5s to ~0.002s
 av_log_start "DAEMON_CHECK"
 DAEMON_FIFO="$HOME/.claude/piper-daemon/input.fifo"
-av_log_info "DAEMON_FIFO: $DAEMON_FIFO"
 
-# Check for systemd service first (preferred), fallback to PID file (legacy)
-daemon_running=false
-av_log_start "SYSTEMD_CHECK"
-if systemctl --user is-active --quiet piper-tts 2>/dev/null; then
-  daemon_running=true
-  av_log_info "Daemon running (systemd service active)"
-elif [[ -f "$HOME/.claude/piper-daemon/piper.pid" ]] && kill -0 "$(cat "$HOME/.claude/piper-daemon/piper.pid")" 2>/dev/null; then
-  daemon_running=true
-  av_log_info "Daemon running (PID file check)"
+# OPTIMIZED: Check FIFO first (fast), only call systemctl if FIFO missing
+# This saves ~30ms on happy path when daemon is running
+daemon_ready=false
+if [[ -p "$DAEMON_FIFO" ]]; then
+  # FIFO exists - daemon is ready (fastest check)
+  daemon_ready=true
+  av_log_info "FIFO exists - daemon ready (fast path)"
+elif systemctl --user is-active --quiet piper-tts 2>/dev/null; then
+  # Systemd says running but FIFO missing - might be starting up, try anyway
+  daemon_ready=true
+  av_log_info "Systemd active but FIFO missing - will attempt write"
 else
-  av_log_warn "Daemon not running (systemd inactive, no valid PID)"
+  av_log_warn "Daemon not running"
 fi
-av_log_end "SYSTEMD_CHECK"
 
-av_log_info "daemon_running=$daemon_running, FIFO exists=$(test -p \"$DAEMON_FIFO\" && echo yes || echo no)"
-
-if [[ "$daemon_running" == "true" ]] && [[ -p "$DAEMON_FIFO" ]]; then
+if [[ "$daemon_ready" == "true" ]]; then
   av_log_info "Using daemon for instant TTS"
   # Daemon is running - use it for instant TTS
   # Use temp file indirection to bypass bash LINE_MAX (2048 byte) limit
@@ -353,9 +351,10 @@ if [[ "$daemon_running" == "true" ]] && [[ -p "$DAEMON_FIFO" ]]; then
   av_log_end "JSON_WRITE"
 
   # Send filename via FIFO with timeout (prevents blocking forever if FIFO is full)
+  # Use positional params to avoid quoting issues with special characters in paths
   av_log_start "FIFO_WRITE"
   av_log_info "Writing to FIFO (5s timeout)..."
-  if timeout 5 bash -c "echo '$TEMP_MSG' > '$DAEMON_FIFO'" 2>/dev/null; then
+  if timeout 5 sh -c 'echo "$1" > "$2"' _ "$TEMP_MSG" "$DAEMON_FIFO" 2>/dev/null; then
     av_log_end "FIFO_WRITE"
     av_log_info "FIFO write successful - daemon will process"
     av_log_end "DAEMON_CHECK"
@@ -371,11 +370,7 @@ if [[ "$daemon_running" == "true" ]] && [[ -p "$DAEMON_FIFO" ]]; then
     echo "Warning: Daemon FIFO timeout, falling back to direct synthesis" >&2
   fi
 else
-  if [[ "$daemon_running" != "true" ]]; then
-    av_log_warn "Daemon not running - will use direct synthesis"
-  elif [[ ! -p "$DAEMON_FIFO" ]]; then
-    av_log_warn "FIFO does not exist at $DAEMON_FIFO - will use direct synthesis"
-  fi
+  av_log_warn "Daemon not available - will use direct synthesis"
 fi
 av_log_end "DAEMON_CHECK"
 

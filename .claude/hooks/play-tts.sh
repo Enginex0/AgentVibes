@@ -49,8 +49,17 @@ export LC_ALL=C
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Source logging utilities
-if [[ -f "$SCRIPT_DIR/logging-utils.sh" ]]; then
+# @function _config_exists
+# @intent Fast check if config file exists (user-level or project-level)
+# @why DRY helper for lazy loading pre-checks - avoids sourcing heavy managers
+# @param $1 config filename (e.g., "tts-learn-enabled.txt")
+# @returns 0 if file exists at either location, 1 otherwise
+_config_exists() {
+  [[ -f "$HOME/.claude/$1" ]] || [[ -f "$PROJECT_ROOT/.claude/$1" ]]
+}
+
+# Source logging utilities (disable with AGENTVIBES_LOGGING=false for ~10ms speedup)
+if [[ "${AGENTVIBES_LOGGING:-true}" != "false" ]] && [[ -f "$SCRIPT_DIR/logging-utils.sh" ]]; then
   source "$SCRIPT_DIR/logging-utils.sh"
   av_log_init "play-tts"
   av_log_start "TTS_REQUEST"
@@ -58,7 +67,7 @@ if [[ -f "$SCRIPT_DIR/logging-utils.sh" ]]; then
   av_log_info "SCRIPT_DIR: $SCRIPT_DIR"
   av_log_info "PROJECT_ROOT: $PROJECT_ROOT"
 else
-  # Fallback stubs
+  # Minimal stubs when logging disabled (~0.2ms per call vs ~1ms with full logging)
   av_log_info() { :; }
   av_log_warn() { :; }
   av_log_error() { :; }
@@ -134,13 +143,23 @@ TEXT="${TEXT//\\,/,}"        # Remove \,
 TEXT="${TEXT//\\./.}"        # Remove \. (keep the period)
 TEXT="${TEXT//\\\\/\\}"      # Remove \\ (escaped backslash)
 
-# Source provider manager to get active provider
+# Get active provider - OPTIMIZED with fast path for user-level mode
 av_log_start "PROVIDER_DETECT"
-source "$SCRIPT_DIR/provider-manager.sh"
 
-# Get active provider
-ACTIVE_PROVIDER=$(get_active_provider)
-av_log_info "Active provider: $ACTIVE_PROVIDER"
+# FAST PATH: User-level mode reads directly (saves ~40ms of sourcing)
+if [[ -f "$HOME/.claude/agentvibes-user-level" ]] && [[ -f "$HOME/.claude/tts-provider.txt" ]]; then
+  ACTIVE_PROVIDER=$(<"$HOME/.claude/tts-provider.txt")
+  ACTIVE_PROVIDER="${ACTIVE_PROVIDER//[[:space:]]/}"  # Trim whitespace
+  av_log_info "Active provider (fast path): $ACTIVE_PROVIDER"
+else
+  # SLOW PATH: Full provider manager for complex setups
+  source "$SCRIPT_DIR/provider-manager.sh"
+  ACTIVE_PROVIDER=$(get_active_provider)
+  av_log_info "Active provider (full): $ACTIVE_PROVIDER"
+fi
+
+# Default to piper if empty
+ACTIVE_PROVIDER="${ACTIVE_PROVIDER:-piper}"
 av_log_end "PROVIDER_DETECT"
 
 # Show GitHub star reminder (once per day)
@@ -202,6 +221,9 @@ speak_text() {
 # @why Issue #51 - Auto-translate and speak twice for immersive language learning
 # @returns 0 if learning mode handled, 1 if not in learning mode
 handle_learning_mode() {
+  # FAST PRE-CHECK: Skip sourcing entirely if learn mode config doesn't exist
+  _config_exists "tts-learn-enabled.txt" || return 1
+
   # Source learn-manager for learning mode functions
   source "$SCRIPT_DIR/learn-manager.sh" 2>/dev/null || return 1
 
@@ -243,6 +265,9 @@ handle_learning_mode() {
 # @why Issue #50 - BMAD multi-language TTS support
 # @returns 0 if translation handled, 1 if not translating
 handle_translation_mode() {
+  # FAST PRE-CHECK: Skip sourcing entirely if translate config doesn't exist
+  _config_exists "tts-translate-enabled.txt" || return 1
+
   # Source translate-manager to get translation settings
   source "$SCRIPT_DIR/translate-manager.sh" 2>/dev/null || return 1
 
