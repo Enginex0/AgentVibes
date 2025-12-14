@@ -13,28 +13,62 @@ set -euo pipefail
 # Fix locale warnings
 export LC_ALL=C
 
-# Get script directory
+# Get script directory (use absolute path - critical for different CWD)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source logging utilities
+if [[ -f "$SCRIPT_DIR/logging-utils.sh" ]]; then
+  source "$SCRIPT_DIR/logging-utils.sh"
+  av_log_init "session-start-tts"
+  av_log_start "SESSION_START"
+  av_log_info "CWD at invocation: $(pwd)"
+  av_log_info "SCRIPT_DIR resolved to: $SCRIPT_DIR"
+else
+  # Fallback if logging not available
+  av_log_info() { :; }
+  av_log_warn() { :; }
+  av_log_error() { :; }
+  av_log_start() { :; }
+  av_log_end() { :; }
+fi
 
 # Check if AgentVibes is installed
 if [[ ! -f "$SCRIPT_DIR/play-tts.sh" ]]; then
   # AgentVibes not installed, don't inject anything
+  av_log_warn "play-tts.sh not found at $SCRIPT_DIR - AgentVibes not installed"
+  av_log_end "SESSION_START" "SKIP"
   exit 0
 fi
+av_log_info "AgentVibes installation verified"
 
 # Check if piper daemon is running (systemd should auto-start on login)
 # Don't block session start - just check and advise
+av_log_start "DAEMON_CHECK"
 DAEMON_FIFO="$HOME/.claude/piper-daemon/input.fifo"
+av_log_info "Checking daemon FIFO at: $DAEMON_FIFO"
 if [[ ! -p "$DAEMON_FIFO" ]]; then
+  av_log_warn "Daemon FIFO not found - daemon may not be running"
   # Daemon not running - try systemd start (non-blocking)
   if command -v systemctl &>/dev/null; then
+    av_log_info "Attempting systemctl --user start piper-tts (background)"
     systemctl --user start piper-tts 2>/dev/null &
+  else
+    av_log_warn "systemctl not available - cannot auto-start daemon"
   fi
+else
+  av_log_info "Daemon FIFO exists - daemon appears running"
 fi
+av_log_end "DAEMON_CHECK"
 
 # Check for sentiment (priority) or personality (fallback)
+av_log_start "CONFIG_LOAD"
+av_log_info "Loading config - checking project-level then user-level"
+
 SENTIMENT=$(cat .claude/tts-sentiment.txt 2>/dev/null || cat ~/.claude/tts-sentiment.txt 2>/dev/null || echo "")
 PERSONALITY=$(cat .claude/tts-personality.txt 2>/dev/null || cat ~/.claude/tts-personality.txt 2>/dev/null || echo "normal")
+
+av_log_info "SENTIMENT=${SENTIMENT:-<empty>}"
+av_log_info "PERSONALITY=$PERSONALITY"
 
 # Determine which to use
 if [[ -n "$SENTIMENT" ]]; then
@@ -44,9 +78,12 @@ else
   STYLE_MODE="personality"
   STYLE_NAME="$PERSONALITY"
 fi
+av_log_info "Using STYLE_MODE=$STYLE_MODE, STYLE_NAME=$STYLE_NAME"
 
 # Get verbosity level (Issue #32)
 VERBOSITY=$(cat .claude/tts-verbosity.txt 2>/dev/null || cat ~/.claude/tts-verbosity.txt 2>/dev/null || echo "low")
+av_log_info "VERBOSITY=$VERBOSITY"
+av_log_end "CONFIG_LOAD"
 
 # Output TTS protocol instructions to stdout
 # Claude Code will add this to the conversation context
@@ -151,3 +188,6 @@ esac
 echo "Current Style: ${STYLE_NAME} (${STYLE_MODE})"
 echo "Current Verbosity: ${VERBOSITY}"
 echo ""
+
+av_log_info "Protocol output complete"
+av_log_end "SESSION_START"

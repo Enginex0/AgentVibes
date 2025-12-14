@@ -49,6 +49,23 @@ export LC_ALL=C
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
+# Source logging utilities
+if [[ -f "$SCRIPT_DIR/logging-utils.sh" ]]; then
+  source "$SCRIPT_DIR/logging-utils.sh"
+  av_log_init "play-tts"
+  av_log_start "TTS_REQUEST"
+  av_log_info "CWD: $(pwd)"
+  av_log_info "SCRIPT_DIR: $SCRIPT_DIR"
+  av_log_info "PROJECT_ROOT: $PROJECT_ROOT"
+else
+  # Fallback stubs
+  av_log_info() { :; }
+  av_log_warn() { :; }
+  av_log_error() { :; }
+  av_log_start() { :; }
+  av_log_end() { :; }
+fi
+
 # Check if muted (persists across sessions)
 # Project settings always override global settings:
 # - .claude/agentvibes-unmuted = project explicitly unmuted (overrides global mute)
@@ -59,29 +76,45 @@ PROJECT_MUTE_FILE="$PROJECT_ROOT/.claude/agentvibes-muted"
 PROJECT_UNMUTE_FILE="$PROJECT_ROOT/.claude/agentvibes-unmuted"
 
 # Check project-level settings first (project overrides global)
+av_log_start "MUTE_CHECK"
 if [[ -f "$PROJECT_UNMUTE_FILE" ]]; then
   # Project explicitly unmuted - ignore global mute
+  av_log_info "Project unmute file found - TTS enabled"
   :  # Continue (do nothing, will not exit)
 elif [[ -f "$PROJECT_MUTE_FILE" ]]; then
   # Project explicitly muted
   if [[ -f "$GLOBAL_MUTE_FILE" ]]; then
+    av_log_info "TTS muted (project + global)"
     echo "🔇 TTS muted (project + global)"
   else
+    av_log_info "TTS muted (project only)"
     echo "🔇 TTS muted (project)"
   fi
+  av_log_end "MUTE_CHECK"
+  av_log_end "TTS_REQUEST" "MUTED"
   exit 0
 elif [[ -f "$GLOBAL_MUTE_FILE" ]]; then
   # Global mute and no project-level override
+  av_log_info "TTS muted (global)"
   echo "🔇 TTS muted (global)"
+  av_log_end "MUTE_CHECK"
+  av_log_end "TTS_REQUEST" "MUTED"
   exit 0
 fi
+av_log_info "TTS not muted - proceeding"
+av_log_end "MUTE_CHECK"
 
 TEXT="${1:-}"
 VOICE_OVERRIDE="${2:-}"  # Optional: voice name or ID
 
+av_log_info "TEXT length: ${#TEXT} chars"
+av_log_info "VOICE_OVERRIDE: ${VOICE_OVERRIDE:-<none>}"
+
 # Security: Validate inputs
 if [[ -z "$TEXT" ]]; then
+  av_log_error "No text provided"
   echo "Error: No text provided" >&2
+  av_log_end "TTS_REQUEST" "ERROR"
   exit 1
 fi
 
@@ -102,10 +135,13 @@ TEXT="${TEXT//\\./.}"        # Remove \. (keep the period)
 TEXT="${TEXT//\\\\/\\}"      # Remove \\ (escaped backslash)
 
 # Source provider manager to get active provider
+av_log_start "PROVIDER_DETECT"
 source "$SCRIPT_DIR/provider-manager.sh"
 
 # Get active provider
 ACTIVE_PROVIDER=$(get_active_provider)
+av_log_info "Active provider: $ACTIVE_PROVIDER"
+av_log_end "PROVIDER_DETECT"
 
 # Show GitHub star reminder (once per day)
 "$SCRIPT_DIR/github-star-reminder.sh" 2>/dev/null || true
@@ -249,25 +285,50 @@ handle_translation_mode() {
 # 2. Translation mode (speaks translated only)
 # 3. Normal mode (speaks as-is)
 
+av_log_info "Checking TTS modes..."
+
 # Try learning mode first (Issue #51)
+av_log_start "LEARNING_MODE_CHECK"
 if handle_learning_mode; then
+  av_log_end "LEARNING_MODE_CHECK"
+  av_log_info "Learning mode handled request"
+  av_log_end "TTS_REQUEST"
   exit 0
 fi
+av_log_info "Learning mode not active"
+av_log_end "LEARNING_MODE_CHECK"
 
 # Try translation mode (Issue #50)
+av_log_start "TRANSLATION_MODE_CHECK"
 if handle_translation_mode; then
+  av_log_end "TRANSLATION_MODE_CHECK"
+  av_log_info "Translation mode handled request"
+  av_log_end "TTS_REQUEST"
   exit 0
 fi
+av_log_info "Translation mode not active"
+av_log_end "TRANSLATION_MODE_CHECK"
 
 # Normal single-language mode - route to appropriate provider implementation
+av_log_info "Normal mode - routing to provider: $ACTIVE_PROVIDER"
+av_log_start "PROVIDER_EXEC"
 case "$ACTIVE_PROVIDER" in
   piper)
+    av_log_info "Executing play-tts-piper.sh"
+    av_log_end "PROVIDER_EXEC"
+    av_log_end "TTS_REQUEST"
     exec "$SCRIPT_DIR/play-tts-piper.sh" "$TEXT" "$VOICE_OVERRIDE"
     ;;
   macos)
+    av_log_info "Executing play-tts-macos.sh"
+    av_log_end "PROVIDER_EXEC"
+    av_log_end "TTS_REQUEST"
     exec "$SCRIPT_DIR/play-tts-macos.sh" "$TEXT" "$VOICE_OVERRIDE"
     ;;
   *)
+    av_log_error "Unknown provider: $ACTIVE_PROVIDER"
+    av_log_end "PROVIDER_EXEC" "ERROR"
+    av_log_end "TTS_REQUEST" "ERROR"
     echo "❌ Unknown provider: $ACTIVE_PROVIDER"
     echo "   Run: /agent-vibes:provider list"
     exit 1

@@ -41,12 +41,33 @@ set -euo pipefail
 export LC_ALL=C
 
 TEXT="$1"
-VOICE_OVERRIDE="$2"  # Optional: voice model name
+VOICE_OVERRIDE="${2:-}"  # Optional: voice model name
 
 # Source voice manager and language manager
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source logging utilities FIRST
+if [[ -f "$SCRIPT_DIR/logging-utils.sh" ]]; then
+  source "$SCRIPT_DIR/logging-utils.sh"
+  av_log_init "play-tts-piper"
+  av_log_start "PIPER_TTS"
+  av_log_info "CWD: $(pwd)"
+  av_log_info "SCRIPT_DIR: $SCRIPT_DIR"
+  av_log_info "TEXT length: ${#TEXT} chars"
+  av_log_info "VOICE_OVERRIDE: ${VOICE_OVERRIDE:-<none>}"
+else
+  # Fallback stubs
+  av_log_info() { :; }
+  av_log_warn() { :; }
+  av_log_error() { :; }
+  av_log_start() { :; }
+  av_log_end() { :; }
+fi
+
+av_log_start "SOURCE_MANAGERS"
 source "$SCRIPT_DIR/piper-voice-manager.sh"
 source "$SCRIPT_DIR/language-manager.sh"
+av_log_end "SOURCE_MANAGERS"
 
 # Default voice for Piper
 DEFAULT_VOICE="en_US-lessac-medium"
@@ -60,7 +81,9 @@ DEFAULT_VOICE="en_US-lessac-medium"
 VOICE_MODEL=""
 
 # Get current language setting
+av_log_start "VOICE_RESOLUTION"
 CURRENT_LANGUAGE=$(get_language_code)
+av_log_info "CURRENT_LANGUAGE: $CURRENT_LANGUAGE"
 
 if [[ -n "$VOICE_OVERRIDE" ]]; then
   # Use override if provided
@@ -112,17 +135,22 @@ else
 
   # If no Piper voice from file, try language-specific voice
   if [[ -z "$VOICE_MODEL" ]]; then
+    av_log_info "No voice from file, trying language-specific"
     LANG_VOICE=$(get_voice_for_language "$CURRENT_LANGUAGE" "piper" 2>/dev/null)
 
     if [[ -n "$LANG_VOICE" ]]; then
       VOICE_MODEL="$LANG_VOICE"
+      av_log_info "Using language voice: $LANG_VOICE"
       echo "🌍 Using $CURRENT_LANGUAGE voice: $LANG_VOICE (Piper)"
     else
       # Use default voice
       VOICE_MODEL="$DEFAULT_VOICE"
+      av_log_info "Using default voice: $DEFAULT_VOICE"
     fi
   fi
 fi
+av_log_info "Final VOICE_MODEL: $VOICE_MODEL"
+av_log_end "VOICE_RESOLUTION"
 
 # @function validate_inputs
 # @intent Check required parameters
@@ -286,39 +314,70 @@ ensure_audio_stack
 # @function check_and_use_daemon
 # @intent Use piper-daemon if running for faster TTS
 # @why Daemon keeps model warm, reducing latency from ~1.5s to ~0.002s
+av_log_start "DAEMON_CHECK"
 DAEMON_FIFO="$HOME/.claude/piper-daemon/input.fifo"
+av_log_info "DAEMON_FIFO: $DAEMON_FIFO"
 
 # Check for systemd service first (preferred), fallback to PID file (legacy)
 daemon_running=false
+av_log_start "SYSTEMD_CHECK"
 if systemctl --user is-active --quiet piper-tts 2>/dev/null; then
   daemon_running=true
+  av_log_info "Daemon running (systemd service active)"
 elif [[ -f "$HOME/.claude/piper-daemon/piper.pid" ]] && kill -0 "$(cat "$HOME/.claude/piper-daemon/piper.pid")" 2>/dev/null; then
   daemon_running=true
+  av_log_info "Daemon running (PID file check)"
+else
+  av_log_warn "Daemon not running (systemd inactive, no valid PID)"
 fi
+av_log_end "SYSTEMD_CHECK"
+
+av_log_info "daemon_running=$daemon_running, FIFO exists=$(test -p \"$DAEMON_FIFO\" && echo yes || echo no)"
 
 if [[ "$daemon_running" == "true" ]] && [[ -p "$DAEMON_FIFO" ]]; then
+  av_log_info "Using daemon for instant TTS"
   # Daemon is running - use it for instant TTS
   # Use temp file indirection to bypass bash LINE_MAX (2048 byte) limit
   ESCAPED_TEXT="${TEXT//\\/\\\\}"
   ESCAPED_TEXT="${ESCAPED_TEXT//\"/\\\"}"
 
   # Security: Use mktemp for unpredictable filename (prevents symlink attacks)
+  av_log_start "TEMP_MSG_CREATE"
   TEMP_MSG=$(mktemp "$HOME/.claude/piper-daemon/msg-XXXXXX.json")
+  av_log_info "Created temp message file: $TEMP_MSG"
+  av_log_end "TEMP_MSG_CREATE"
 
   # Write JSON to temp file first (no line length limits)
+  av_log_start "JSON_WRITE"
   printf '{"text":"%s"}' "$ESCAPED_TEXT" > "$TEMP_MSG"
+  av_log_end "JSON_WRITE"
 
   # Send filename via FIFO with timeout (prevents blocking forever if FIFO is full)
+  av_log_start "FIFO_WRITE"
+  av_log_info "Writing to FIFO (5s timeout)..."
   if timeout 5 bash -c "echo '$TEMP_MSG' > '$DAEMON_FIFO'" 2>/dev/null; then
+    av_log_end "FIFO_WRITE"
+    av_log_info "FIFO write successful - daemon will process"
+    av_log_end "DAEMON_CHECK"
+    av_log_end "PIPER_TTS"
     echo "⚡ Daemon TTS (instant)"
     echo "🎤 Voice: $VOICE_MODEL (Piper daemon)"
     exit 0
   else
+    av_log_end "FIFO_WRITE" "TIMEOUT"
+    av_log_error "FIFO write timed out after 5s"
     # Timeout or error - clean up temp file and fall through to direct synthesis
     rm -f "$TEMP_MSG" 2>/dev/null
     echo "Warning: Daemon FIFO timeout, falling back to direct synthesis" >&2
   fi
+else
+  if [[ "$daemon_running" != "true" ]]; then
+    av_log_warn "Daemon not running - will use direct synthesis"
+  elif [[ ! -p "$DAEMON_FIFO" ]]; then
+    av_log_warn "FIFO does not exist at $DAEMON_FIFO - will use direct synthesis"
+  fi
 fi
+av_log_end "DAEMON_CHECK"
 
 # Daemon not running - fall back to regular synthesis
 # @function synthesize_with_piper
@@ -329,20 +388,32 @@ fi
 # @exitcode 0=success, 4=synthesis error
 # @sideeffects Creates audio file
 # @edgecases Handles piper errors, invalid models, multi-speaker voices
+av_log_start "DIRECT_SYNTHESIS"
+av_log_info "Falling back to direct piper synthesis (no daemon)"
+av_log_info "VOICE_PATH: $VOICE_PATH"
+av_log_info "SPEECH_RATE: $SPEECH_RATE"
+av_log_info "TEMP_FILE: $TEMP_FILE"
+
 if [[ -n "${SPEAKER_ID:-}" ]]; then
   # Multi-speaker voice: Pass speaker ID
+  av_log_info "Multi-speaker mode, SPEAKER_ID: ${SPEAKER_ID}"
   echo "$TEXT" | piper --model "$VOICE_PATH" --speaker "${SPEAKER_ID}" --length-scale "$SPEECH_RATE" --output_file "$TEMP_FILE" 2>/dev/null
 else
   # Single-speaker voice
+  av_log_info "Single-speaker mode"
   echo "$TEXT" | piper --model "$VOICE_PATH" --length-scale "$SPEECH_RATE" --output_file "$TEMP_FILE" 2>/dev/null
 fi
+av_log_end "DIRECT_SYNTHESIS"
 
 if [[ ! -f "$TEMP_FILE" ]] || [[ ! -s "$TEMP_FILE" ]]; then
+  av_log_error "Synthesis failed - no output file created"
+  av_log_end "PIPER_TTS" "ERROR"
   echo "❌ Failed to synthesize speech with Piper"
   echo "Voice model: $VOICE_MODEL"
   echo "Check that voice model is valid"
   exit 4
 fi
+av_log_info "Synthesis successful, file size: $(stat -c%s "$TEMP_FILE" 2>/dev/null || stat -f%z "$TEMP_FILE" 2>/dev/null) bytes"
 
 # @function add_silence_padding
 # @intent Add silence to prevent WSL audio static
@@ -400,17 +471,23 @@ DURATION=${DURATION%.*}  # Round to integer
 DURATION=${DURATION:-1}   # Default to 1 second if detection fails
 
 # Play audio in background (skip if in test mode)
+av_log_start "AUDIO_PLAYBACK"
 if [[ "${AGENTVIBES_TEST_MODE:-false}" != "true" ]]; then
   # Detect platform and use appropriate audio player
   if [[ "$(uname -s)" == "Darwin" ]]; then
     # macOS: Use afplay (native macOS audio player)
+    av_log_info "Using afplay (macOS)"
     afplay "$TEMP_FILE" >/dev/null 2>&1 &
     PLAYER_PID=$!
   else
     # Linux/WSL: Try mpv, aplay, or paplay
+    av_log_info "Using mpv/aplay/paplay (Linux)"
     (mpv "$TEMP_FILE" || aplay "$TEMP_FILE" || paplay "$TEMP_FILE") >/dev/null 2>&1 &
     PLAYER_PID=$!
   fi
+  av_log_info "Player started, PID: ${PLAYER_PID:-unknown}"
+else
+  av_log_info "Test mode - skipping playback"
 fi
 
 # Check if audio saving is enabled (default: false = delete after playback)
@@ -419,6 +496,8 @@ SAVE_AUDIO="false"
 if [[ -f "$SAVE_AUDIO_FILE" ]] && [[ "$(cat "$SAVE_AUDIO_FILE" 2>/dev/null)" == "true" ]]; then
   SAVE_AUDIO="true"
 fi
+av_log_info "SAVE_AUDIO: $SAVE_AUDIO"
+av_log_info "Audio duration: ${DURATION}s"
 
 # Wait for audio to finish, then release lock (flock released on fd close) and optionally cleanup
 if [[ "$SAVE_AUDIO" == "true" ]]; then
@@ -429,5 +508,8 @@ else
   echo "🎵 Audio played (not saved)"
 fi
 disown
+av_log_end "AUDIO_PLAYBACK"
 
+av_log_info "Direct synthesis complete"
+av_log_end "PIPER_TTS"
 echo "🎤 Voice used: $VOICE_MODEL (Piper TTS)"
